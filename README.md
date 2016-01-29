@@ -192,7 +192,7 @@ Uninstall like any other third-party ProcessWire module.
 *	Currently, [chunked](https://github.com/blueimp/jQuery-File-Upload/wiki/Chunked-file-uploads) file uploads have not been implemented on the server-side. You would need to use a custom uploads handler for this.
 
 ## Support forum
-[Support](https://processwire.com/talk/topic/12050-module-jqueryfileupload/)
+[Support](https://processwire.com/talk/topic/12050-module-jquery-file-upload/)
 
 ## Changelog
 
