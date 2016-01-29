@@ -20,7 +20,7 @@ A short demo can be found [here](https://youtu.be/iwUH1JPa5og).
 *	Client-side image resizing (highly configurable [options](https://github.com/blueimp/jQuery-File-Upload/wiki/Options#image-preview--resize-options)).
 *	Beautiful touch-responsive image gallery preview.
 *	Audio and video previews pre-upload.
-*	[Chunked](https://github.com/blueimp/jQuery-File-Upload/wiki/Chunked-file-uploads) and resumable file uploads (currently client-side only; see notes section).
+*	[Chunked](https://github.com/blueimp/jQuery-File-Upload/wiki/Chunked-file-uploads) and resumable file uploads (currently client-side only; see [notes](https://github.com/kongondo/JqueryFileUpload#notes) section).
 *	Drag and drop support.
 *	Copy and paste support (Google Chrome only).
 *	Progress bars.
