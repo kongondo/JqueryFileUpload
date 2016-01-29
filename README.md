@@ -35,7 +35,7 @@ JqueryFileUpload implements all the [options](https://github.com/blueimp/jQuery-
 *	**showUploaded**: Whether to show uploaded files (default is false).
 *	**uploadsDeletable**: Whether clients can delete uploads (default is false).
 *	**disableUploads**: If set to true, the widget becomes a file lister only. Default is false.
-*	**privateUploadsDir**: The non-web-accessible folder to save uploads to. If showUploaded is set to false, this (system) directory is used for saving uploads.
+*	**privateUploadsDir**: The non-web-accessible folder to save uploads to. If *showUploaded* is set to false, this (system) directory is used for saving uploads.
 *	**uploadsDir**: Set a web-accessible folder to upload images to. Default is under /sites/. Needed if displaying uploaded images.
 *	**thumbsDir**: Set a web-accessible folder for thumbnails. Needed if displaying uploaded images.
 *	**setMaxFiles**: Maximum number of files per upload. Default is 30.
