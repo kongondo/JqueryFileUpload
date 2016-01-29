@@ -15,7 +15,7 @@ A short demo can be found [here](https://youtu.be/iwUH1JPa5og).
 
 ## Features
 
-*	Fast client-side Ajax uploads.
+*	Fast Ajax uploads.
 * 	Client and server-side validation.
 *	Client-side image resizing (highly configurable [options](https://github.com/blueimp/jQuery-File-Upload/wiki/Options#image-preview--resize-options)).
 *	Beautiful touch-responsive image gallery preview.
