@@ -111,7 +111,7 @@ class JqueryFileUpload extends WireData implements Module {
 				// $this->createThumbnails()
 				'thumbsWidth' => 100,
 				'thumbsHeight' => 75,
-				'createThumb' => false,
+				'createThumb' => false,// whether to create image thumbnails for uploads
 
 				// uploads (read+write)
 				'privateUploadsDir' => $this->privateUploadsDir,// @note: non-web-accessible
@@ -999,7 +999,7 @@ class JqueryFileUpload extends WireData implements Module {
 					if($showUploaded === 1) {
 						$message['url'] = $uploadsURL  . $f;
 						// thumbnails only for images
-						if($valid['isImage'] == true) $message['thumbnailUrl'] = $thumbsURL . $f;
+						if($valid['isImage'] == true && $options['createThumb'] == true) $message['thumbnailUrl'] = $thumbsURL . $f;
 					}					
 				}
 				else {

@@ -35,7 +35,9 @@ JqueryFileUpload implements all the [options](https://github.com/blueimp/jQuery-
 *	**showUploaded**: Whether to show uploaded files (default is false).
 *	**uploadsDeletable**: Whether clients can delete uploads (default is false).
 *	**disableUploads**: If set to true, the widget becomes a file lister only. Default is false.
+*	**responseType**: If set to 1, module returns a JSON response to valid Ajax requests. If 2, it returns an Array. This can be useful if further processing is needed, e.g. in a module, before outputting final JSON. Default is to return a JSON response.
 *	**privateUploadsDir**: The non-web-accessible folder to save uploads to. If *showUploaded* is set to false, this (system) directory is used for saving uploads.
+*	**thumbsPrivateDir**: Set a non-web-accessible folder for thumbnails.
 *	**uploadsDir**: Set a web-accessible folder to upload images to. Default is under /sites/. Needed if displaying uploaded images.
 *	**thumbsDir**: Set a web-accessible folder for thumbnails. Needed if displaying uploaded images.
 *	**setMaxFiles**: Maximum number of files per upload. Default is 30.
@@ -45,7 +47,7 @@ JqueryFileUpload implements all the [options](https://github.com/blueimp/jQuery-
 *	**showGallery**: Whether to enable the widget to display uploaded images in a (blueimp) gallery.
 *	**thumbsWidth**: Set the width for image thumbnails: Default is 100.
 *	**thumbsHeight**: Set the height for image thumbnails. Defaults to 75.
-*	**createThumb**: Whether to create image thumbnails for uploads. Default is true.
+*	**createThumb**: Whether to create image thumbnails for uploads. Default is false.
 *	**allowedImageMimeTypes**: Array of allowed image mime types: Default is array('image/gif', 'image/jpeg', 'image/png').
 *	**imageTypeConstants**: Array of allowed image type constants. Default is array('gif'	=> IMAGETYPE_GIF, 'jpeg' => IMAGETYPE_JPEG, 'jpg' => IMAGETYPE_JPEG, 'png' => IMAGETYPE_PNG).
 *	**allowedNonImageMimeTypes**: Array of allowed non-image files mime types. Default is  array('application/pdf', 'audio/mpeg', 'video/mp4').
