@@ -110,7 +110,7 @@ if ($config->ajax) {
 	$ajaxOptions = array(
 		'uploadsDeletable' => 1,// disable attempts to delete upload (this is already the default but included here just as an example)
 		'showUploaded' => 1,// don't send back response listing uploads
-		'disableUploads' => true// disable uploads @note: matches similar setting in render()
+		//'disableUploads' => true// disable uploads @note: matches similar setting in render()
 	);
 	
 	// action the ajax request
@@ -139,7 +139,7 @@ $jfuConfig = $jfu->configsJFU($jfuOptions);
 $options = array(
 	// useful for allowing uploads to one group of users and not the other (e.g. registered versus non-registered)
 	// for security, we also pass this option to processJFUAjax($options) to reject any upload attempts
-	'disableUploads' => true,
+	//'disableUploads' => true,
 );
 
 ```
