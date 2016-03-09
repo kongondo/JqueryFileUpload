@@ -16,7 +16,7 @@
 * Copyright (C) 2011 by Ryan Cramer
 * http://www.processwire.com
 *
-* All files under /js/ and related stylesheets @Copyright , Sebastian Tschan
+* All files under /js/ and related stylesheets @Copyright, Sebastian Tschan
 * https://blueimp.net 
 *
 * This module is Licensed under the MIT license
@@ -41,7 +41,7 @@ class JqueryFileUpload extends WireData implements Module {
 			'summary' => 'ProcessWire Wrapper for jQuery File Upload Plugin.',
 			'author' => 'Francis Otieno (Kongondo)',
 			'href' => 'https://processwire.com/talk/topic/12050-module-jquery-file-upload/',
-			'version' => 001,
+			'version' => 002,
 			'singular' => true, 
 			'autoload' => false, 
 			//'permission' => 'jquery-file-upload',
@@ -67,6 +67,7 @@ class JqueryFileUpload extends WireData implements Module {
 		// by default, we upload to a non-accessible folder
 		$this->privateUploadsDir = $config->paths->files . 'jqfu/.files_no_show/';		
 		if(!is_dir($this->privateUploadsDir)) wireMkdir($this->privateUploadsDir, true);
+		$thumbsPrivateDir = $this->privateMediaUploadsDir . 'thumbnails/';
 		
 		$uploadsDir = $config->paths->files . 'jqfu/files/';// web-accessible directory
 		$thumbsDir = $config->paths->files . 'jqfu/files/thumbnails/';// ditto
@@ -94,8 +95,9 @@ class JqueryFileUpload extends WireData implements Module {
 				// custom option. Allows the module to be used as a files lister only (e.g. allow uploads for registered users, otherwise show list only )
 				// if setting to true, also needs to be passed to $this->render to disable output of form widget
 				'disableUploads' => false,
-				'paramName' => 'files',// 
+				'paramName' => 'files',
 				'acceptFileTypes' => 'gif jpeg jpg png mp3 pdf mp4 pdf',
+				'responseType' => 1, // if 1 we return [echo] a JSON response if 2, we return an array(useful) if further processing, e.g. in a module, is necessary before returning final response
 				'setMaxFiles' => 30,// WireUpload
 				'setOverwrite' => false,// WireUpload
 
@@ -104,14 +106,16 @@ class JqueryFileUpload extends WireData implements Module {
 				'uploadsDeletable' => 0,// custom option: show buttons and enable deletion of uploaded files. Default=false
 				'enableDropZone' => 1,// render a drop zone where files could be uploaded via 'dropping'
 				'showGallery' => 1,// render blueimp gallery
+				'filesContainer' => 'files',
 
 				// $this->createThumbnails()
 				'thumbsWidth' => 100,
 				'thumbsHeight' => 75,
-				'createThumb' => true,
+				'createThumb' => false,
 
 				// uploads (read+write)
 				'privateUploadsDir' => $this->privateUploadsDir,// @note: non-web-accessible
+				'thumbsPrivateDir' => $thumbsPrivateDir,// -ditto-
 				'uploadsDir' => $uploadsDir,// @note: web-accessible
 				'thumbsDir' => $thumbsDir,// @note: web-accessible
 				'uploadsURL' => $uploadsURL,// @note: web accissible
@@ -458,7 +462,8 @@ class JqueryFileUpload extends WireData implements Module {
 			$showGallery = (int) $options["showGallery"];
 
 			// the table listing the files available for upload/download
-			$out .= $this->renderUploadDownloadTableListing($allowDelete, $showGallery);			
+			$filesContainer = $options['filesContainer'];
+			$out .= $this->renderUploadDownloadTableListing($allowDelete, $showGallery, $filesContainer);			
 
 			if($formOut && $disableUploads == false) $out .= "\n\t\t</form>";
 
@@ -614,15 +619,16 @@ class JqueryFileUpload extends WireData implements Module {
 	*
 	* @access private
 	* @param $allowDelete Integer if deleting uploads is allowed. Used to set data attribute 'data-deletable' to control individual delete buttons (js).
-	* @param $showGallery Integer whether images in this table would be viewable in an image gallery. For use in js.
+	* @param $showGallery Integer Will be used to determine whether to enable a gallery of uploaded media.
+	* @param $filesContainer String ID of the tbody element that will hold files listed for upload/download.
 	* @return $out String Markup for table listing for files ready for upload/download.
 	*
 	*/
-	private function renderUploadDownloadTableListing($allowDelete = 0, $showGallery = 1) {
+	private function renderUploadDownloadTableListing($allowDelete = 0, $showGallery = 1, $filesContainer = 'files') {
 		// the table listing the files available for upload/download
 		$out = "\n\t<table role='presentation' class='files_list table-striped' data-deletable='" . $allowDelete ."' data-show-gallery='" . $showGallery . "'>".
-					"\n\t\t<tbody id='files'></tbody>\n".
-				"\t</table>\n";// @todo: hardcoded tbody#id for now (can be set using filesContainer property)
+					"\n\t\t<tbody id='" . $filesContainer . "'></tbody>\n".
+				"\t</table>\n";
 		return $out;
 	}
 
@@ -651,7 +657,7 @@ class JqueryFileUpload extends WireData implements Module {
 	*
 	*/
 	private function renderDropZone() {
-		$out = "\n\t<div id='dropzone' class='fade well'>" . //@todo: do we need 'well'?
+		$out = "\n\t<div id='dropzone' class='fade well'>" . // @todo: do we need 'well'?
 				"\n\t\t<h3 id='add_menu_items'>" . $this->_("Drop files here") . "</h3>\n".
 				"\t</div>";
 		return $out;
@@ -662,14 +668,14 @@ class JqueryFileUpload extends WireData implements Module {
 	*
 	* @code: taken from the blueimp jquery file upload demo.
 	*
-	* @access private
+	* @access public
 	* @return $out String Markup of action buttons.
 	*
 	*/
-	private function renderGalleryWidget() {
+	public function renderGalleryWidget() {
 
 		// the blueimp Gallery Widget
-		$out = "\n\t<div id='blueimp-gallery' class='blueimp-gallery blueimp-gallery-controls' data-filter=':even'>" . 
+		$out = "\n\t<div id='blueimp-gallery' class='blueimp-gallery blueimp-gallery-controls'>" . 
 					"\n\t\t<div class='slides'></div>" .
 					"\n\t\t<h3 class='title'></h3>" .
 					"\n\t\t<a class='prev'>‹</a>" .
@@ -699,7 +705,7 @@ class JqueryFileUpload extends WireData implements Module {
 		/*
 			@note: we operate a tight ship
 				1. Nothing gets deleted unless expressely requested via the API server-side, i.e. pass as an option in $options
-				2. Nothing gets listed unless expressely requested via the API, server-side, i.e. passed as an optin in $options
+				2. Nothing gets listed unless expressely requested via the API, server-side, i.e. passed as an option in $options
 				3. Uploads are sent to a quarantined area, by default, a non-web-accessible folder
 		*/
 
@@ -744,9 +750,16 @@ class JqueryFileUpload extends WireData implements Module {
 			
 			}
 
-			echo json_encode($data);
-			exit;	
+			// determine whether to return a JSON response OR an array
+			// e.g. for use in a module before finally returning a JSON string
+			$responseType = (int) $options['responseType'];
 
+			if($responseType === 2) return $data;// return array
+			elseif($responseType === 1) {// return JSON
+					echo json_encode($data);
+					exit;
+			}
+			
 		}// end if ajax
 
 	}
@@ -801,7 +814,7 @@ class JqueryFileUpload extends WireData implements Module {
 
 		$uploads = array();
 
-		$options['createThumb'] = false;// prevents creating of image thumbnails down the line past $this->validateFile()
+		$options['createThumb'] = false;// prevents (re)creating image thumbnails down the line past $this->validateFile()
 
 		// if we made it here then it means we want to show uploads so we hit the web-accessible files directory
 		$uploadsDir = $options['uploadsDir'];// web-accessible directory
@@ -827,7 +840,7 @@ class JqueryFileUpload extends WireData implements Module {
 			$valid = $this->validateFile($path, $options);// returns an array
 
 			if($valid['valid'] == false) {
-				unlink($path);//delete invalid file. @todo: confirm if desirable?  But also put this in docs
+				unlink($path);// delete invalid file. @todo: put this in docs
 				continue;
 			}
 		
@@ -881,13 +894,14 @@ class JqueryFileUpload extends WireData implements Module {
 
 		// process uploaded files
 		// @note: later, via $this->getResponse() we validate Mime Types
-		$acceptFileTypes = explode(' ', $options['acceptFileTypes']);// to check for valid extensions
+		$acceptFileTypes = explode(' ', $options['acceptFileTypes']);// to check for valid extensions. Convert the string to an array
 
 		set_time_limit(60);// try to avoid timing out
 
 		// get new WireUpload to process files
-		$uploadMedia = new WireUpload($options['paramName']); //The name of upload media <input type='file'> in form 
+		$uploadMedia = new WireUpload($options['paramName']); //The name of upload media <input type='file'> in the <form>
 		$uploadMedia->setOverwrite($options['setOverwrite']);
+		#if(isset($options)) @todo: add other wireupload options? There's 12 of them in total
 		$uploadMedia->setMaxFiles($options['setMaxFiles']);
 		$uploadMedia->setDestinationPath($dir);
 		$uploadMedia->setValidExtensions($acceptFileTypes);
@@ -990,7 +1004,7 @@ class JqueryFileUpload extends WireData implements Module {
 				}
 				else {
 						$message['error'] = $valid['error'];
-						unlink($path);//delete invalid file
+						unlink($path);// delete invalid file
 				}
 
 				$responses['files'][] = $message;
@@ -1007,13 +1021,13 @@ class JqueryFileUpload extends WireData implements Module {
 	* Validation for images vs. non-image files done separately in two separate methods.
 	* Here we only determine the file type and send off for validation.
 	*
-	* @access private
+	* @access public
 	* @param $path String full path to the file to validate.
 	* @param $options Array of options to guide validation.
-	* @return $valid Array Responses about a files' validity.
+	* @return $valid Array Responses about a file's validity.
 	*
 	*/
-	private function validateFile($path, Array $options) {		
+	public function validateFile($path, Array $options) {		
 
 		$valid = array();
 		$commonImageExts = $options['commonImageExts'];
@@ -1070,6 +1084,7 @@ class JqueryFileUpload extends WireData implements Module {
 		elseif(class_exists('finfo')){
 			$finfo = new finfo;
 			$mime = $finfo->file($otherFile, FILEINFO_MIME);
+			$mime = substr($mime , 0, strpos($mime, ';'));// remove the ; charset=binary appended by this function after the mime_type
 		}
 		else $mime = '';// to force valid=false and deletion later
 
@@ -1123,7 +1138,8 @@ class JqueryFileUpload extends WireData implements Module {
 		// if mime type matches what we allowed, it is a valid image for upload
 		if($isValidImage) {
 			$valid['valid'] = true;
-			if((int) $options['showUploaded'] === 1 && $options['createThumb'] == true) $this->createThumbnails($imageFile, $options);// if creating image thumbnail
+			// if creating thumbnail. @note: let user decide if they WANT a thumbnail (default is false)
+			if($options['createThumb'] == true) $this->createThumbnails($imageFile, $options);// if creating image thumbnail
 		}
 
 		else {
@@ -1137,7 +1153,7 @@ class JqueryFileUpload extends WireData implements Module {
 	}
 
 	/**
-	* Create thumnails of uploaded images.
+	* Create thumbnails of uploaded images.
 	*
 	* Only used if showUploaded is true.
 	* We use ProcessWire's ImageSizer class to create the thumbnail.
@@ -1150,15 +1166,17 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
 	private function createThumbnails($imageFile, Array $options) {
 
-		// @note: if we are here it means we have allowed uploaded files to be viewable!
+		// @note: being here doesn't mean we have allowed uploads to be viewable;
+		// in some contexts, e.g. in modules/backend, we might want to create thumbnails anyway
 
 		$width = $options['thumbsWidth'];
 		$height = $options['thumbsHeight'];
 
 		$file = new SplFileInfo($imageFile);
 		$fileName = $file->getBasename();
-		
-		$thumbsDir = $options['thumbsDir'];
+
+		if((int) $options['showUploaded'] === 1) $thumbsDir = $options['thumbsDir'];
+		else $thumbsDir = $options['thumbsPrivateDir'];
 
 		if(!is_dir($thumbsDir)) wireMkdir($thumbsDir, true);
 		// create a copy of the file to resize since ImageSizer will not

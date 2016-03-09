@@ -3,7 +3,7 @@
  * Copyright 2010, Sebastian Tschan
  * https://blueimp.net
  * 
- * Modified by Francis Otieno (Kongondo) January 2016 for the ProcessWire plug JqueryFileUpload
+ * Modified by Francis Otieno (Kongondo) January 2016 for the ProcessWire plugin/module JqueryFileUpload
  *
  * Licensed under the MIT license:
  * http://www.opensource.org/licenses/MIT
@@ -22,7 +22,7 @@ $(document).ready(function(){
 				$.each(jfuConfig, function(k, v){
                     if(k == 'acceptFileTypes') {
                         flags = 'i';
-                        var regex = new RegExp("(\.|\/)(" + v + ")$", flags);// @todo: unsure: $ and i don't see to work? otherwise its fine                                          
+                        var regex = new RegExp("(\.|\/)(" + v + ")$", flags);// @todo: $ and i don't seem to work? otherwise its fine                                          
                         v = regex;
                     }
 					options[k] = v;
@@ -33,7 +33,7 @@ $(document).ready(function(){
     // GLOBALS
 
     // show image gallery?
-    showGallery = $('table.files_list').attr('data-show-gallery');// @todo: could move options.showGallery
+    showGallery = $('table.files_list').attr('data-show-gallery');// @todo: could move to options.showGallery
     showUploaded = options.showUploaded;
     url = options.url;
     container = options.filesContainer;
@@ -147,8 +147,8 @@ $(document).ready(function(){
 
 /* fetch uploads*/
 $(document).ready(function(){
-    if(showUploaded !== false) {
-       // Load existing files if showUploaded is not false
+    if(showUploaded === 1) {
+       // Send request to load existing files if showUploaded is not disabled (1: show; 0: don't show)
         $('#fileupload').addClass('fileupload-processing'); 
         $.ajax({
             // Uncomment the following to send cross-domain cookies:

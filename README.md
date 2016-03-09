@@ -196,8 +196,14 @@ Uninstall like any other third-party ProcessWire module.
 
 ## Changelog
 
+#### Version 0.0.2
+1. Additional CSS added.
+2. filesContainer value now configurable.
+3. Added a thumbsPrivateDir option.
+4. Response type from module can now be either JSON or an Array (for further processing, say, in a module).
+
 #### Version 0.0.1
-1. Initial release
+1. Initial release.
 
 
 ## License
