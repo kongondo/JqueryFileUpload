@@ -1,0 +1,341 @@
+/*
+ *
+ * Parts of this code: Copyright 2010, Sebastian Tschan
+ *                     https://blueimp.net
+ * 
+ * Modified by Francis Otieno (Kongondo) January 2016 for the ProcessWire plug JqueryFileUpload
+ *
+ * Licensed under the MIT license:
+ * http://www.opensource.org/licenses/MIT
+ */
+
+
+/***************** @note: WORK IN PROGRESS *****************/
+
+form#fileupload {width: 100%;}
+
+div#dropzone {
+    background: #D9D9D9;
+    width: 100%;
+    height: 250px;
+    line-height: 50px;
+    margin: 2em 0 2em;
+    border: 0.125em dashed #A6A6A6;
+    border-radius: 10px;
+    text-align: center;  
+    color: #6F6F6F;
+
+}
+
+div#dropzone h3 {
+	font-size: 2.25em;
+	font-weight: bold;
+	margin-top: 2.5em;
+}
+
+div#dropzone.in {
+    width: 97%;
+    height: 200px;
+    line-height: 200px;
+    font-size: larger;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+
+div#dropzone.in h3 {margin-top: 0;}
+div#dropzone:hover {background-color: #EFF2F6; color: #000;}
+
+div#dropzone.fade {
+    -webkit-transition: all 0.3s ease-out;
+    -moz-transition: all 0.3s ease-out;
+    -ms-transition: all 0.3s ease-out;
+    -o-transition: all 0.3s ease-out;
+    transition: all 0.3s ease-out;
+    opacity: 1;
+}
+
+/* progress bars */
+
+div.fade {
+  opacity: 0;
+  -webkit-transition: opacity .15s linear;
+  -o-transition: opacity .15s linear;
+  transition: opacity .15s linear;
+
+}
+
+/* action buttons/input */
+input[type=checkbox].toggle {width:20px !important; height:20px !important;}
+input[type=checkbox]#sel_all_files {width:20px;	height:20px; float: left;}
+
+div.files_container button.files_upload, div.files_container span#add_files, div.files_container table.files_list button {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  color: #FFF;
+  font-weight: normal;
+  font-size: 1em !important;
+  border-radius: 3px;
+  transition: all 120ms ease-in;
+  display: inline-block;
+  position: relative;
+  padding: 0.5em;
+  line-height: normal;
+  margin-right: .1em;
+  margin-bottom: 5px;
+  cursor: pointer;
+  vertical-align: middle;
+  text-align: center;
+  overflow: visible;
+  font-family: "Helvetica Neue",Arial,sans-serif;
+  border: none;
+}
+
+div.files_container button:focus {outline: 0;}
+
+div.files_container button.files_upload span {
+	display: block;
+	line-height: normal;
+	text-shadow: none !important;
+	font-size: 1em !important;
+	position: relative;
+}
+
+div.files_container span#add_files {
+	background-color: #5CB85C;
+	padding: 0.505em;
+  position: relative;
+	position: relative;
+	overflow: hidden;
+	display: inline-block;
+}
+
+/*@reno theme tweak*/
+div.files_container div.action-buttons-wrapper-Reno button{padding: 0; height: 2.75em;}
+div.files_container div.action-buttons-wrapper-Reno span{padding: 0.75em !important;}
+
+/*div.files_container div.action-buttons-wrapper-Reno input[type=checkbox].toggle {margin-top: ;}*/
+
+div.files_container span#add_files input[type=file] {
+	position: absolute;
+	top: 0;
+	right: 0;
+	margin: 0;
+	opacity: 0;
+	-ms-filter: 'alpha(opacity=0)';
+	font-size: 200px;
+	direction: ltr;
+	cursor: pointer;
+
+}
+
+div.files_container span#add_files:hover {background-color: #419441;}
+div.files_container button.start {background-color: #428BCA;}
+div.files_container button.start:hover {background-color: #3173AE;}
+div.files_container button.cancel {background-color: #F0AD4E;}
+div.files_container button.cancel:hover {background-color: #DF8813;}
+div.files_container button.delete {background-color: #D9534F;}
+div.files_container button.delete:hover {background-color: #B62B27;}
+div.files_container table.files_list button {margin-right: 0.25em; padding: 0.3em;}
+
+/* container div */
+div.files_container .text-danger {color: #A94442;}
+div.files_container p {margin: 0 0 10px;}
+
+
+/* table showing files list */
+table.files_list {
+	width: 100%;
+	max-width: 100%;
+	margin-bottom: 20px;
+	background-color: transparent;
+	border-spacing: 0;
+	border-collapse: collapse;
+}
+
+table.files_list tr.fade.in {opacity: 1;}
+table.files_listtr.fade {transition: opacity .15s linear;}
+
+table.table-striped>tbody>tr:nth-child(odd)>td, 
+table.table-striped>tbody>tr:nth-child(odd)>th {
+    background-color: #f9f9f9;
+}
+
+table.table>thead>tr>th, 
+table.table>tbody>tr>th, 
+table.table>tfoot>tr>th, 
+table.table>thead>tr>td, 
+table.table>tbody>tr>td, 
+table.table>tfoot>tr>td {
+    padding: 8px;
+    line-height: 1.42857143;
+    vertical-align: top;
+    border-top: 1px solid #ddd;
+}
+
+table.files_list a {color: #428BCA; text-decoration: none;}
+table.files_list a:hover {color: #225079; text-decoration: underline;}
+
+
+
+
+/********* @note/@todo: .progress still not working properly *********/
+
+
+.progress {
+    background-color: #F5F5F5;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
+    height: 20px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+progress.active .progress-bar, .progress-bar.active {
+    -webkit-animation: progress-bar-stripes 2s linear infinite;
+    -o-animation: progress-bar-stripes 2s linear infinite;
+    animation: progress-bar-stripes 2s linear infinite;
+}
+.progress-striped .progress-bar-success {
+   
+background-image: -webkit-linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-image: -o-linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+
+
+}
+
+.progress.active .progress-bar, .progress-bar.active {
+    -webkit-animation: progress-bar-stripes 2s linear infinite;
+    -o-animation: progress-bar-stripes 2s linear infinite;
+    animation: progress-bar-stripes 2s linear infinite;
+}
+.progress-striped .progress-bar-success {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+}
+.progress-striped .progress-bar-success {
+    background-image: -webkit-linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-image: -o-linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+}
+.progress-striped .progress-bar, .progress-bar-striped {
+    background-image: -webkit-linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-image: -o-linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+    -webkit-background-size: 40px 40px;
+    background-size: 40px 40px;
+}
+
+.progress-bar {
+    float: left;
+    width: 0;
+    height: 100%;
+    font-size: 12px;
+    line-height: 20px;
+    color: #fff;
+    text-align: center;
+    background-color: #428bca;
+    -webkit-box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+    -webkit-transition: width .6s ease;
+    -o-transition: width .6s ease;
+    transition: width .6s ease;
+}
+
+
+.progress-bar-success {
+    background-color: #5cb85c;
+}
+.progress-bar {
+    box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.15) inset;
+    color: #fff;
+    float: left;
+    font-size: 12px;
+    height: 100%;
+    line-height: 20px;
+    text-align: center;
+    transition: width 0.6s ease 0s;
+}
+
+p {
+    margin: 0 0 10px;
+}
+
+/*--------------------------------*/
+
+@charset "UTF-8";
+/*
+ * jQuery File Upload Plugin CSS
+ * https://github.com/blueimp/jQuery-File-Upload
+ *
+ * Copyright 2013, Sebastian Tschan
+ * https://blueimp.net
+ *
+ * Licensed under the MIT license:
+ * http://www.opensource.org/licenses/MIT
+ */
+
+/* Fixes for IE < 8 */
+@media screen\9 {
+  .fileinput-button input {
+    filter: alpha(opacity=0);
+    font-size: 100%;
+    height: 100%;
+  }
+}
+
+
+
+/*-------------------------------*/
+
+@charset "UTF-8";
+/*
+ * jQuery File Upload UI Plugin CSS
+ * https://github.com/blueimp/jQuery-File-Upload
+ *
+ * Copyright 2010, Sebastian Tschan
+ * https://blueimp.net
+ *
+ * Licensed under the MIT license:
+ * http://www.opensource.org/licenses/MIT
+ */
+
+.fileupload-buttonbar .toggle {margin-bottom: 5px;}
+.progress-bar,
+.progress-animated .bar {
+  background: url("../img/progressbar.gif") !important;
+  filter: none;
+}
+.fileupload-process {float: right; display: none;}
+.fileupload-processing .fileupload-process,
+.files .processing .preview {
+  display: block;
+  width: 32px;
+  height: 32px;
+  background: url("../img/loading.gif") center no-repeat;
+  background-size: contain;
+}
+.files audio,
+.files video {
+  max-width: 300px;
+}
+
+@media (max-width: 767px) {
+  .fileupload-buttonbar .toggle,
+  .files .toggle,
+  .files .btn span {
+    display: none;
+  }
+  .files .name {
+    width: 80px;
+    word-wrap: break-word;
+  }
+  .files audio,
+  .files video {
+    max-width: 80px;
+  }
+  .files img,
+  .files canvas {
+    max-width: 100%;
+  }
+}
