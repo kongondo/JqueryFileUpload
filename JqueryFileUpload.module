@@ -208,7 +208,7 @@ class JqueryFileUpload extends WireData implements Module {
 		}
 	
 		// also add our main js file unless custom script being used
-		if(!in_array('useCustomScript', $options)) $config->scripts->add($url . "js/JqueryFileUpload.js");		
+		if(!in_array('useCustomScript', $options)) $config->scripts->add($url . "js/jqueryfileupload.js");		
 		
 	}
 
@@ -225,7 +225,7 @@ class JqueryFileUpload extends WireData implements Module {
 		$config = $this->wire('config');
 		$url = $config->urls->$this;
 
-		if(!in_array('useCustomStyle', $options)) $config->styles->add($url . 'css/jQueryFileUpload.css'); 
+		if(!in_array('useCustomStyle', $options)) $config->styles->add($url . 'css/jqueryfileupload.css'); 
 		if(!in_array('noGallery', $options)) $config->styles->add($url . 'css/blueimp-gallery.min.css'); 		
 
 	}
@@ -301,7 +301,7 @@ class JqueryFileUpload extends WireData implements Module {
 		}
 
 		// also add our main js file unless custom script being used
-		if(!in_array('useCustomScript', $options)) $out .= "\n\t<script type='text/javascript' src='". $url . "js/JqueryFileUpload.js'></script>";
+		if(!in_array('useCustomScript', $options)) $out .= "\n\t<script type='text/javascript' src='". $url . "js/jqueryfileupload.js'></script>";
 
 		return $out;
 
@@ -322,7 +322,7 @@ class JqueryFileUpload extends WireData implements Module {
 		// @todo?: move to /site/assets/JqueryFileUpload/css ?
 		$url = $this->wire('config')->urls->$this;
 		$out = '';
-		if(!in_array('useCustomStyle', $options)) $out .= "\n\t\t<link href='". $url ."css/jQueryFileUpload.css' type='text/css' rel='stylesheet'>\n";
+		if(!in_array('useCustomStyle', $options)) $out .= "\n\t\t<link href='". $url ."css/jqueryfileupload.css' type='text/css' rel='stylesheet'>\n";
 		if(!in_array('noGallery', $options)) $out .= "\n\t\t<link href='". $url ."css/blueimp-gallery.min.css' type='text/css' rel='stylesheet'>\n";
 		return $out;
 	}
@@ -469,7 +469,7 @@ class JqueryFileUpload extends WireData implements Module {
 
 			$out .= "\n\t</div>";// end div.container
 
-			// if photo gallery enabled (@see: downloadTemplate property in jQueryFileUpload.js)
+			// if photo gallery enabled (@see: downloadTemplate property in jqueryfileupload.js)
 			if($showGallery === 1) $out .= $this->renderGalleryWidget();			
 		}
 
