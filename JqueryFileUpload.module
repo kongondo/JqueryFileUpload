@@ -41,7 +41,7 @@ class JqueryFileUpload extends WireData implements Module {
 			'summary' => 'ProcessWire Wrapper for jQuery File Upload Plugin.',
 			'author' => 'Francis Otieno (Kongondo)',
 			'href' => 'https://processwire.com/talk/topic/12050-module-jquery-file-upload/',
-			'version' => 002,
+			'version' => 3,
 			'singular' => true, 
 			'autoload' => false, 
 			//'permission' => 'jquery-file-upload',
@@ -379,7 +379,7 @@ class JqueryFileUpload extends WireData implements Module {
 		// else if in ProcessWire admin, we populate config->js()
 		else {
 
-			$jfuConfig = $this->config->js($this->className(), $options);// populate global config->js() with our jfu configs
+			$jfuConfig = $this->wire('config')->js($this->className(), $options);// populate global config->js() with our jfu configs
 		}		
 
 	}
@@ -405,8 +405,9 @@ class JqueryFileUpload extends WireData implements Module {
 		else $options = $defaultOptions;
 
 		// CSRF
-		$tokenName = $this->session->CSRF->getTokenName();
-		$tokenValue = $this->session->CSRF->getTokenValue();
+		$session = $this->wire('session');
+		$tokenName = $session->CSRF->getTokenName();
+		$tokenValue = $session->CSRF->getTokenValue();
 
 		$token = "<input type='hidden' id='_post_token' name='" . $tokenName . "' value='" . $tokenValue . "'>";
 
@@ -443,7 +444,7 @@ class JqueryFileUpload extends WireData implements Module {
 				$extraClass = $extraCSSClass ? ' action-buttons-wrapper-' . $extraCSSClass : '';
 
 				$out .= "\n\t\t\t\t<div class='action-buttons-wrapper" . $extraClass . "'>\n";// buttons wrapper
-				$paramName = $this->sanitizer->text($options['paramName']);// @todo: could be tricky sanitizing this!
+				$paramName = $this->wire('sanitizer')->text($options['paramName']);// @todo: could be tricky sanitizing this!
 				$out .= "\n\t\t\t\t" . $this->renderActionButtons($allowDelete, $paramName);
 				
 				// the global file processing state
@@ -533,7 +534,7 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
 	private function renderStartUploadsButton() {
 
-		$b = $this->modules->get('InputfieldButton');
+		$b = $this->wire('modules')->get('InputfieldButton');
 		$b->attr('id+name', 'start_upload'); 
 		$b->value = $this->_('Start uploads');
 		$b->attr('type', 'submit');
@@ -554,7 +555,7 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
 	private function renderCancelUploadsButton() {
 
-		$b = $this->modules->get('InputfieldButton');
+		$b = $this->wire('modules')->get('InputfieldButton');
 		$b->attr('id+name', 'cancel_upload'); 
 		$b->value = $this->_('Cancel uploads');
 		$b->attr('type', 'reset');
@@ -575,7 +576,7 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
 	private function renderDeleteUploadsButton() {
 
-		$b = $this->modules->get('InputfieldButton');
+		$b = $this->wire('modules')->get('InputfieldButton');
 		$b->attr('id+name', 'delete_selected'); 
 		$b->value = $this->_('Delete selected');
 		$b->class .= ' files_upload delete';
@@ -675,7 +676,9 @@ class JqueryFileUpload extends WireData implements Module {
 	public function renderGalleryWidget() {
 
 		// the blueimp Gallery Widget
-		$out = "\n\t<div id='blueimp-gallery' class='blueimp-gallery blueimp-gallery-controls'>" . 
+		// @note: 'The jQuery plugin also introduces the additional filter option, which is applied to the Gallery links via jQuery's filter method and allows to remove duplicates from the list:'
+		// @see: https://github.com/blueimp/Gallery#html5-data-attributes
+		$out = "\n\t<div id='blueimp-gallery' class='blueimp-gallery blueimp-gallery-controls' data-filter=':even'>" . // ensure duplicates removed
 					"\n\t\t<div class='slides'></div>" .
 					"\n\t\t<h3 class='title'></h3>" .
 					"\n\t\t<a class='prev'>‹</a>" .
@@ -710,7 +713,7 @@ class JqueryFileUpload extends WireData implements Module {
 		*/
 
 		// we only listen to ajax requests
-		if ($this->config->ajax) {
+		if ($this->wire('config')->ajax) {
 
 			$defaultOptions = $this->defaultOptions;
 
@@ -721,12 +724,13 @@ class JqueryFileUpload extends WireData implements Module {
 			$data = array();// for our JSON to feed back to jquery file upload plugin
 			$files = array();// only to hold files to delete
 
-			$input = $this->input->post;
+			$input = $this->wire('input')->post;
+			$sanitizer = $this->wire('sanitizer');
 			
 			$paramName = $options['paramName'];
 			$uploads = isset($_FILES[$paramName]) && count($_FILES[$paramName]) ? true : false;// @note: $_FILES sent internally by jquery file upload plugin
-			$list = $this->sanitizer->name($input->jfu_list);// show/list uploads request @note: below we confirm if request also okayed server-side		
-			$delete = $this->sanitizer->name($this->input->jfu_delete);
+			$list = $sanitizer->name($input->jfu_list);// show/list uploads request @note: below we confirm if request also okayed server-side		
+			$delete = $sanitizer->name($input->jfu_delete);
 			
 			if($list === 'list') {
 				// check server-side if it is OK to show files (in table list in form widget) that have been uploaded to the web-accessible folder
@@ -875,7 +879,7 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
 	private function saveUploads(Array $options) {
 
-		$this->session->CSRF->validate();// validate against CSRF
+		$this->wire('session')->CSRF->validate();// validate against CSRF
 
 		$data = array();
 
@@ -899,7 +903,7 @@ class JqueryFileUpload extends WireData implements Module {
 		set_time_limit(60);// try to avoid timing out
 
 		// get new WireUpload to process files
-		$uploadMedia = new WireUpload($options['paramName']); //The name of upload media <input type='file'> in the <form>
+		$uploadMedia = new WireUpload($options['paramName']); // The name of upload media <input type='file'> in the <form>
 		$uploadMedia->setOverwrite($options['setOverwrite']);
 		#if(isset($options)) @todo: add other wireupload options? There's 12 of them in total
 		$uploadMedia->setMaxFiles($options['setMaxFiles']);
@@ -934,7 +938,7 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
 	private function deleteUploads(Array $options, $files = array()) {
 
-		//$this->session->CSRF->validate();// validate against CSRF @todo: can't get this to work currently; error thrown even when token set
+		//$this->wire('session')->CSRF->validate();// validate against CSRF @todo: can't get this to work currently; error thrown even when token set
 
 		// @note: we are only deleting web-accessible files (i.e. not those in the private folder)
 		$data = array();
