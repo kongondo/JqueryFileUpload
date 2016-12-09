@@ -198,6 +198,13 @@ Uninstall like any other third-party ProcessWire module.
 
 ## Changelog
 
+#### Version 0.0.4
+1. Fixed minor bug introduced in last version's commit that caused some images not to be displayed in the gallery.
+
+#### Version 0.0.3
+1. Fixed an issue that caused duplicates in image gallery.
+2. Some minor enhancements.
+
 #### Version 0.0.2
 1. Additional CSS added.
 2. filesContainer value now configurable.
