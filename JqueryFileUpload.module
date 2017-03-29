@@ -41,7 +41,7 @@ class JqueryFileUpload extends WireData implements Module {
 			'summary' => 'ProcessWire Wrapper for jQuery File Upload Plugin.',
 			'author' => 'Francis Otieno (Kongondo)',
 			'href' => 'https://processwire.com/talk/topic/12050-module-jquery-file-upload/',
-			'version' => 4,
+			'version' => 5,
 			'singular' => true, 
 			'autoload' => false, 
 			//'permission' => 'jquery-file-upload',
@@ -350,7 +350,7 @@ class JqueryFileUpload extends WireData implements Module {
 			'dropZone' =>  '#dropzone',
 			'uploadTemplateId' =>  'null',
 			'downloadTemplateId' =>  'null',
-			'maxFileSize' => 200000000,// 2GB
+			'maxFileSize' => 2000000000,// 2GB
 			'loadImageMaxFileSize' => 100000000,// 100MB: The maximum file size of images to load
 			'loadVideoMaxFileSize' => 1000000000,// 1GB: The maximum file size of video files to load
 			'previewMinWidth' => 100,
