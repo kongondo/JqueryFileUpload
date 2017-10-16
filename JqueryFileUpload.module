@@ -41,7 +41,7 @@ class JqueryFileUpload extends WireData implements Module {
 			'summary' => 'ProcessWire Wrapper for jQuery File Upload Plugin.',
 			'author' => 'Francis Otieno (Kongondo)',
 			'href' => 'https://processwire.com/talk/topic/12050-module-jquery-file-upload/',
-			'version' => 5,
+			'version' => 6,
 			'singular' => true, 
 			'autoload' => false, 
 			//'permission' => 'jquery-file-upload',
@@ -123,7 +123,7 @@ class JqueryFileUpload extends WireData implements Module {
 
 				// image files validation @note: user configurable via $this->processJFUAjax()
 				'allowedImageMimeTypes' => array('image/gif', 'image/jpeg', 'image/png'),
-				'commonImageExts' => array('jpg', 'jpeg', 'gif', 'png'),
+				'commonImageExts' => array('jpg', 'jpeg', 'gif', 'png', 'svg'),
 				'imageTypeConstants' => array('gif'	=> IMAGETYPE_GIF, 'jpeg' => IMAGETYPE_JPEG, 'jpg' => IMAGETYPE_JPEG, 'png' => IMAGETYPE_PNG),
 				
 				// other files validation (pdf, mp3, mp4)
@@ -435,7 +435,7 @@ class JqueryFileUpload extends WireData implements Module {
 			if($disableUploads == true) $out .= "<input id='fileupload' type='hidden'>";// if no form output with id#fileupload, need this to trigger jquery file upload plugin
 			else {
 			
-				// in a module in ProcessWire admin, we'll use admin forms instead
+				// if NOT in a module in ProcessWire admin, we'll use our form
 				if($formOut) $out .= "\n\t\t<form id='fileupload' action='./' method='POST' enctype='multipart/form-data'>";
 				#$out .= "<noscript><input type='hidden' name='redirect' value='./'></noscript>;// @todo: unsure?
 				$out .= $token;
@@ -1052,11 +1052,9 @@ class JqueryFileUpload extends WireData implements Module {
 		}
 
 		else {
-
 			$valid['valid'] = false;
-			$valid['error'] = $this->_('File not found!');			 
-
-			}
+			$valid['error'] = $this->_('File not found!');
+		}		
 
 		return $valid;
 
@@ -1145,7 +1143,8 @@ class JqueryFileUpload extends WireData implements Module {
 		// if mime type matches what we allowed, it is a valid image for upload
 		if($isValidImage) {
 			$valid['valid'] = true;
-			// if creating thumbnail. @note: let user decide if they WANT a thumbnail (default is false)
+			// if creating thumbnail
+			// @note: let user decide if they WANT a thumbnail (default is false)			
 			if($options['createThumb'] == true) $this->createThumbnails($imageFile, $options);// if creating image thumbnail
 		}
 
@@ -1189,9 +1188,12 @@ class JqueryFileUpload extends WireData implements Module {
 		// create a copy of the file to resize since ImageSizer will not
 		if(is_dir($thumbsDir)) copy($imageFile, $thumbsDir . $fileName);
 		else return;// couldn't make directory
-	
-		$is = new ImageSizer($thumbsDir . '/' . $fileName);
-		$is->resize($width,$height);
+
+		// @note: we skip resizing SVGs. imageSizer, understandably, throws an error
+		if('svg'!=$file->getExtension()) {
+			$is = new ImageSizer($thumbsDir . '/' . $fileName);
+			$is->resize($width,$height);
+		}
 
 	}
 

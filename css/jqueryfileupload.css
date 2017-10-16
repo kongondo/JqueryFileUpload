@@ -166,7 +166,7 @@ table.table>tfoot>tr>td {
 table.files_list a {color: #428BCA; text-decoration: none;}
 table.files_list a:hover {color: #225079; text-decoration: underline;}
 
-
+form#fileupload table.files_list img {width: 100px; height: 75px;}
 
 
 /********* @note/@todo: .progress still not working properly *********/
