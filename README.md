@@ -197,6 +197,9 @@ Uninstall like any other third-party ProcessWire module.
 [Support](https://processwire.com/talk/topic/12050-module-jquery-file-upload/)
 
 ## Changelog
+#### Version 0.0.6
+1. Added support for SVGs.
+
 #### Version 0.0.5
 1. Fixed a typo in the default setting for maxFileSize.
 
