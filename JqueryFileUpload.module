@@ -1,4 +1,4 @@
-<?php
+<?php namespace ProcessWire;
 
 /**
 * This is a ProcessWire module implementation of the awesome jQuery File Upload plugin (https://github.com/blueimp/jQuery-File-Upload).
@@ -11,13 +11,12 @@
 *
 * https:// github.com/kongondo/JqueryFileUpload
 * Created 18 January 2016
-* 
-* ProcessWire 2.x
-* Copyright (C) 2011 by Ryan Cramer
-* http://www.processwire.com
+*
+* ProcessWire 3.x
+* Copyright (C) 2016 by Ryan Cramer*
 *
 * All files under /js/ and related stylesheets @Copyright, Sebastian Tschan
-* https://blueimp.net 
+* https://blueimp.net
 *
 * This module is Licensed under the MIT license
 * http://www.opensource.org/licenses/MIT
@@ -33,7 +32,7 @@ class JqueryFileUpload extends WireData implements Module {
 	* @access public
 	* @return array of information.
 	*
-	*/	
+	*/
 	public static function getModuleInfo() {
 
 		return array(
@@ -41,9 +40,9 @@ class JqueryFileUpload extends WireData implements Module {
 			'summary' => 'ProcessWire Wrapper for jQuery File Upload Plugin.',
 			'author' => 'Francis Otieno (Kongondo)',
 			'href' => 'https://processwire.com/talk/topic/12050-module-jquery-file-upload/',
-			'version' => 6,
-			'singular' => true, 
-			'autoload' => false, 
+			'version' => 7,
+			'singular' => true,
+			'autoload' => false,
 			//'permission' => 'jquery-file-upload',
 		);
 
@@ -51,6 +50,10 @@ class JqueryFileUpload extends WireData implements Module {
 
 	private $privateUploadsDir;// for private uploads [default]
 	private $defaultOptions = array();// for processing jfu ajax requests
+	private $options = array();// for final (default merged with custom) options for use in class operations.
+	private $backendMode;// check if in backend or frontend
+	private $uploadActionsRender;// actions: buttons/icons/text
+	private $uploads = array();// for temporary storage of files from unzipping archives operations
 
 	/**
 	* Set some key properties for use throughout the class.
@@ -60,15 +63,16 @@ class JqueryFileUpload extends WireData implements Module {
 	*/
     public function __construct() {
 
+
 		parent::__construct();
 
 		$config = $this->wire('config');
 
 		// by default, we upload to a non-accessible folder
-		$this->privateUploadsDir = $config->paths->files . 'jqfu/.files_no_show/';		
-		if(!is_dir($this->privateUploadsDir)) wireMkdir($this->privateUploadsDir, true);
+		$this->privateUploadsDir = $config->paths->files . 'jqfu/.files_no_show/';
+		if(!is_dir($this->privateUploadsDir)) $this->wire('files')->mkdir($this->privateUploadsDir, true);
 		$thumbsPrivateDir = $this->privateMediaUploadsDir . 'thumbnails/';
-		
+
 		$uploadsDir = $config->paths->files . 'jqfu/files/';// web-accessible directory
 		$thumbsDir = $config->paths->files . 'jqfu/files/thumbnails/';// ditto
 		$uploadsURL = $config->urls->files . 'jqfu/files/';// ditto
@@ -76,13 +80,13 @@ class JqueryFileUpload extends WireData implements Module {
 
 		/* 	@note: The defaultOptions below ARE NOT the values we send to jQuery File Upload plugin!
 		 	for those, @see $this->configsJFU().
-		 	
+
 		 	in total, there's 3 types of configurations/options we deal with:
 		 		1. 	Options/configurations that are passed on to the plugin for use on the client-side: @see $this->configsJFU($options)
-		 		
+
 		 		2. 	Options/configurations that are passed determine how and which parts of the form to render.
 		 			This happens server-side: @see $this->render($options).
-		 		
+
 		 		3. 	Options/configurations that are used to process upload/listing/deletion ajax requests sent by the form.
 		 			For security, this is all dealt with server-side: @see $this->processJFUAjax($options).
 		 			We don't rely on client-side validation. By default, no requests are honoured unless explicitly permitted server-side using this method. Hence, this is a very important method.
@@ -90,100 +94,138 @@ class JqueryFileUpload extends WireData implements Module {
 		*/
 
 		$this->defaultOptions = array(
-				// important for $this->processJFUAjax() @note: user configurable
-				'showUploaded' => 0,// custom option
-				// custom option. Allows the module to be used as a files lister only (e.g. allow uploads for registered users, otherwise show list only )
-				// if setting to true, also needs to be passed to $this->render to disable output of form widget
-				'disableUploads' => false,
-				'paramName' => 'files',
-				'acceptFileTypes' => 'gif jpeg jpg png mp3 pdf mp4 pdf',
-				'responseType' => 1, // if 1 we return [echo] a JSON response if 2, we return an array(useful) if further processing, e.g. in a module, is necessary before returning final response
-				'setMaxFiles' => 30,// WireUpload
-				'setOverwrite' => false,// WireUpload
+			// important for $this->processJFUAjax() @note: user configurable
+			'showUploaded' => 0,// custom option
+			// custom option. Allows the module to be used as a files lister only (e.g. allow uploads for registered users, otherwise show list only )
+			// if setting to true, also needs to be passed to $this->render to disable output of form widget
+			'disableUploads' => false,
+			'paramName' => 'files',
+			'acceptFileTypes' => 'gif jpeg jpg png mp3 pdf mp4 pdf',
+			'responseType' => 1, // if 1 we return [echo] a JSON response if 2, we return an array(useful) if further processing, e.g. in a module, is necessary before returning final response
+			'setMaxFiles' => 30,// WireUpload
+			'setOverwrite' => false,// WireUpload
 
-				// $this->render() @note: user configurable
-				'useCustomForm' => 0,// whether to use a custom form + action buttons for uploads + upload actions
-				'uploadsDeletable' => 0,// custom option: show buttons and enable deletion of uploaded files. Default=false
-				'enableDropZone' => 1,// render a drop zone where files could be uploaded via 'dropping'
-				'showGallery' => 1,// render blueimp gallery
-				'filesContainer' => 'files',
+			# $this->render() @note: user configurable
+			'useCustomForm' => 0,// whether to use a custom form + action buttons for uploads + upload actions
+			'uploadsDeletable' => 0,// custom option: show buttons and enable deletion of uploaded files. Default=false
+			'enableDropZone' => 1,// render a drop zone where files could be uploaded via 'dropping'
+			'showGallery' => 1,// render blueimp gallery
+			'filesContainer' => 'files',
 
-				// $this->createThumbnails()
-				'thumbsWidth' => 100,
-				'thumbsHeight' => 75,
-				'createThumb' => false,// whether to create image thumbnails for uploads
+			# thumbnails
+			// $this->createThumbnails()
+			/* 'thumbsWidth' => 100, */
+			'thumbsWidth' => 0,// @note: proportional width
+			'thumbsHeight' => 260,
+			'createThumb' => false,// whether to create image thumbnails for uploads
 
-				// uploads (read+write)
-				'privateUploadsDir' => $this->privateUploadsDir,// @note: non-web-accessible
-				'thumbsPrivateDir' => $thumbsPrivateDir,// -ditto-
-				'uploadsDir' => $uploadsDir,// @note: web-accessible
-				'thumbsDir' => $thumbsDir,// @note: web-accessible
-				'uploadsURL' => $uploadsURL,// @note: web accissible
-				'thumbsURL' => $thumbsURL,// @note: web-accessible
+			# uploads (read+write)
+			'privateUploadsDir' => $this->privateUploadsDir,// @note: non-web-accessible
+			'thumbsPrivateDir' => $thumbsPrivateDir,// -ditto-
+			'uploadsDir' => $uploadsDir,// @note: web-accessible
+			'thumbsDir' => $thumbsDir,// @note: web-accessible
+			'uploadsURL' => $uploadsURL,// @note: web accissible
+			'thumbsURL' => $thumbsURL,// @note: web-accessible
 
-				// image files validation @note: user configurable via $this->processJFUAjax()
-				'allowedImageMimeTypes' => array('image/gif', 'image/jpeg', 'image/png'),
-				'commonImageExts' => array('jpg', 'jpeg', 'gif', 'png', 'svg'),
-				'imageTypeConstants' => array('gif'	=> IMAGETYPE_GIF, 'jpeg' => IMAGETYPE_JPEG, 'jpg' => IMAGETYPE_JPEG, 'png' => IMAGETYPE_PNG),
-				
-				// other files validation (pdf, mp3, mp4)
-				'allowedNonImageMimeTypes' => array('application/pdf', 'audio/mpeg', 'video/mp4'),
+			# image files validation @note: user configurable via $this->processJFUAjax()
+			'allowedImageMimeTypes' => array('image/gif', 'image/jpeg', 'image/png'),
+			'commonImageExts' => array('jpg', 'jpeg', 'gif', 'png', 'svg'),
+			'imageTypeConstants' => array('gif'	=> IMAGETYPE_GIF, 'jpeg' => IMAGETYPE_JPEG, 'jpg' => IMAGETYPE_JPEG, 'png' => IMAGETYPE_PNG),
+
+			# other files validation (pdf, mp3, mp4)
+			'allowedNonImageMimeTypes' => array('application/pdf', 'audio/mpeg', 'video/mp4'),
+
+			# custom settings
+			// what to render for upload actions: start/cancel/delete (1=buttons;2=icons,3=text)
+			// @note/@todo: not currently using but may revisit if there's demand. In that case, will add the combined button as an option as well? In that case we'll also have to revisit the JS in other places
+			'uploadActionsRender' => 1,
+			/*
+				- renders custom markup set by dev
+				- this can be used for custom actions, custom action buttons, etc.
+			 	- @note: JFU only provides the markup. Devs have to do their own form processing implementation
+			*/
+			'customJFUActionMarkup' => '',
+			// whether to decompress zip files after upload. contents will then be listable if listing
+			// @note: zip file is deleted after decompression
+			// @note: we only allow unzip if in the backend!
+			'unzipFiles' => false,
+			// the target HTML element we'll be calling the fileupload method on (@note: we'll use as selector since we need jQuery collection)
+			'targetElement' => '#fileupload',
+			// whether to move unzipped files in sub-folders to the main root uploads directory + delete the empty sub-folders
+			// @note: currently, mainly for internal use @TOD0!!
+			'moveToRoot' => true,
 
 		);
 
-				$this->extraCSSClass = $this->adminTheme == 'AdminThemeReno' ? 'Reno' : '';
+		$this->backendMode = $this->wire('page')->template == 'admin' ? true : false;
+		$this->extraCSSClass = $this->adminTheme == 'AdminThemeReno' ? 'Reno' : '';
 
 
 	}
 
 	/**
-	* Initialise the module. This is an optional initialisation method called before any execute methods.
-	*	
-	* Initialises various class properties ready for use throughout the class.
-	*
-	* @access public
-	*
-	*/
+	 * Initialise the module. This is an optional initialisation method called before any execute methods.
+	 *
+	 * Initialises various class properties ready for use throughout the class.
+	 *
+	 * @access public
+	 *
+	 */
 	public function init() {
 
-						
 	}
 
+	/* ######################### - CONFIG - ######################### */
+
 	/**
-	* Add all needed scripts using $config->scripts->add().
-	*	
-	* @access public
-	* @param $options Array of options to disable outputting certain scripts if some features not in use.
-	* @see: https://github.com/blueimp/jQuery-File-Upload/wiki/Plugin-files.
-	*
-	*/
+	 * Add all needed scripts using $config->scripts->add().
+	 *
+	 * @access public
+	 * @param array $options Options to disable outputting certain scripts if some features not in use.
+	 * @see: https://github.com/blueimp/jQuery-File-Upload/wiki/Plugin-files.
+	 *
+	 */
 	public function configJFUScripts($options = array()) {
-		
+
 		// scripts needed by jQuery File Upload
 		$scripts = array (
 
 			// 1. iframe transport
-			'iframetransport|jquery.iframe-transport.min.js',// adds iframe transport support to jQuery.ajax()
+			// adds iframe transport support to jQuery.ajax()
+			'iframetransport|jquery.iframe-transport.min.js',
 
 			// 2. canvas to blob
-			'canvastoblob|canvas-to-blob.min.js',// Canvas to Blob plugin is included for image resizing functionality
+			// Canvas to Blob plugin is included for image resizing functionality
+			'canvastoblob|canvas-to-blob.min.js',
 
 			// 3. load image
-			'loadimage|load-image.all.min.js',// plugin included for the preview images and image resizing functionality (also audio+video previews)
+			// plugin included for the preview images and image resizing functionality
+			// ...also audio+video previews
+			'loadimage|load-image.all.min.js',
 
 			// 4. fileupload core
-			'fileupload|jquery.fileupload.min.js',// the basic plugin: enhances file upload process, without making assumptions about user interface or content-type of response
-			'fileupload|jquery.fileupload-process.min.js',// extends the basic version of the fileupload plugin and adds file processing functionality					
-			'fileupload|jquery.fileupload-image.min.js',// extends the file processing plugin and adds image preview & resize functionality
-			'fileupload|jquery.fileupload-audio.min.js',// extends the file processing plugin and adds audio preview functionality		
-			'fileupload|jquery.fileupload-video.min.js',// extends the file processing plugin and adds video preview functionality
-			'fileupload|jquery.fileupload-validate.min.js',// extends the file processing plugin and adds file validation functionality
-			'fileupload|jquery.fileupload-ui.min.js',// extends the file processing plugin and adds a complete user interface
-			//'fileupload|jquery.fileupload-jquery-ui.min.js',// extends the UI version of the fileupload plugin to use it with jQuery UI
+			// the basic plugin: enhances file upload process, without making assumptions about user interface or content-type of response
+			'fileupload|jquery.fileupload.min.js',
+			// extends the basic version of the fileupload plugin and adds file processing functionality
+			'fileupload|jquery.fileupload-process.min.js',
+			// extends the file processing plugin and adds image preview & resize functionality
+			'fileupload|jquery.fileupload-image.min.js',
+			// extends the file processing plugin and adds audio preview functionality
+			'fileupload|jquery.fileupload-audio.min.js',
+			// extends the file processing plugin and adds video preview functionality
+			'fileupload|jquery.fileupload-video.min.js',
+			// extends the file processing plugin and adds file validation functionality
+			'fileupload|jquery.fileupload-validate.min.js',
+			// extends the file processing plugin and adds a complete user interface
+			'fileupload|jquery.fileupload-ui.min.js',
+			// extends the UI version of the fileupload plugin to use it with jQuery UI
+			//'fileupload|jquery.fileupload-jquery-ui.min.js',
 
-			// 5. Cross-origin Resource Sharing (CORS) @todo!!?
-			'cors|jquery.xdr-transport.min.js',// adds XDomainRequest transport support to jQuery.ajax()
-			'cors|jquery.postmessage-transport.min.js',// adds postMessage transport support to jQuery.ajax()
+			// 5. Cross-origin Resource Sharing (CORS) @todo?
+			// adds XDomainRequest transport support to jQuery.ajax()
+			'cors|jquery.xdr-transport.min.js',
+			// adds postMessage transport support to jQuery.ajax()
+			'cors|jquery.postmessage-transport.min.js',
 
 			// 6. gallery
 			'gallery|jquery.blueimp-gallery.min.js',
@@ -202,49 +244,113 @@ class JqueryFileUpload extends WireData implements Module {
 			if(in_array('noResize', $options) && $folder == 'canvastoblob') continue;
 			if(in_array('noAudioPreview', $options) && $folder == 'fileupload' && strpos($s,'audio') !== false) continue;
 			if(in_array('noVideoPreview', $options) && $folder == 'fileupload' && strpos($s,'video') !== false) continue;
-			
+
 			$config->scripts->add($url . "js/". $folder . "/" . $s);
 
 		}
-	
+
 		// also add our main js file unless custom script being used
-		if(!in_array('useCustomScript', $options)) $config->scripts->add($url . "js/jqueryfileupload.js");		
-		
+		if(!in_array('useCustomScript', $options)) $config->scripts->add($url . "js/jqueryfileupload.js");
+
 	}
 
 	/**
-	* Add all needed styles using $config->styles->add().
-	*	
-	* @access public
-	* @param $options Array containing option to not output gallery CSS if gallery disabled.
-	*/
+	 * Add all needed styles using $config->styles->add().
+	 *
+	 * @access public
+	 * @param array $options Contains option to not output gallery CSS if gallery disabled.
+	 *
+	 */
 	public function configJFUStyles($options = array()) {
-
-		// @todo?: move sources to /site/assets/JqueryFileUpload/css ?
-		
 		$config = $this->wire('config');
 		$url = $config->urls->$this;
-
-		if(!in_array('useCustomStyle', $options)) $config->styles->add($url . 'css/jqueryfileupload.css'); 
-		if(!in_array('noGallery', $options)) $config->styles->add($url . 'css/blueimp-gallery.min.css'); 		
-
+		if(!in_array('useCustomStyle', $options)) $config->styles->add($url . 'css/jqueryfileupload.css');
+		if(!in_array('noGallery', $options)) $config->styles->add($url . 'css/blueimp-gallery.min.css');
 	}
 
 	/**
-	* Add markup for all needed scripts.
-	*	
-	* This is an alternative to using configJFUScripts.
-	* Here we use <script></script>
-	*
-	* @access public
-	* @param $options Array of options to disable outputting certain scripts if some features not in use.
-	* @see: https://github.com/blueimp/jQuery-File-Upload/wiki/Plugin-files.
-	* @return $out String Markup to add to <head> or just before </body>.
-	*
-	*/
-	public function renderJFUScripts($options = array()) {
+	 * Outputs javascript configuration settings for this module.
+	 *
+	 * This will need to be output before the page is rendered.
+	 * See documentation for an example.
+	 * @note: We can pass any options we need (if different from the defaults) through $options.
+	 * @note: Different output depending on if in the front or backend.
+	 *
+	 * @access public
+	 * @param array $options Options to override jQuery File Upload's plugin defaults.
+	 * @return string $json Added to $config->js() array. We return JSON if in the frontend but in backend populate $config->js().
+	 *
+	 */
+	public function configsJFU($options = null) {
 
-		// @todo?: move to /site/assets/JqueryFileUpload/js ?
+		$defaultJFUOptions = array(
+			"url" => "./",// by default we post to same page that sent the request
+			'acceptFileTypes' => 'gif jpeg jpg png mp3 pdf mp4',// @todo: why not just get from $this->defaultOptions()?
+			'showUploaded' => false,// by default, don't show files that have already been uploaded
+			'filesContainer' =>  '#files',
+			'dropZone' =>  '.jfu_dropzone',
+			'uploadTemplateId' =>  'null',
+			'downloadTemplateId' =>  'null',
+			'maxFileSize' => 2000000000,// 2GB
+			'loadImageMaxFileSize' => 100000000,// 100MB: The maximum file size of images to load
+			'loadVideoMaxFileSize' => 1000000000,// 1GB: The maximum file size of video files to load
+			'previewMinWidth' => 0,
+			'previewMinHeight' => 260,
+			'previewMaxWidth' => 0,
+			'previewMaxHeight' => 260,
+			'previewCrop' => true,// Define if preview images should be cropped or only scaled
+			// messages
+			# @note: undocumented in JFU but works. we need these for customisation and translation
+			'messages' => array(
+                'maxNumberOfFiles' => $this->_("Maximum number of files exceeded"),
+                'acceptFileTypes' => $this->_("File type not allowed"),
+                'maxFileSize' => $this->_("File is too large"),
+                'minFileSize' => $this->_("File is too small")
+			),
+			// own/custom config
+			'useCustomJFUActionMarkup' => false,
+			// the target HTML element we'll be calling the fileupload method on (@note: we'll use as selector since we need jQuery collection)
+			'targetElement' => '#fileupload',
+		);
+
+		// merge user options with default jfu configuration options
+		if($options != null && is_array($options)) $options = array_merge($defaultJFUOptions, $options);
+		else $options = $defaultJFUOptions;
+
+		// reformat accepted file types string
+		$acceptFileTypes = explode(' ', $options['acceptFileTypes']);// convert into array
+		$options['acceptFileTypes'] = implode('|', $acceptFileTypes);// convert into pipe-separated string, i.e. 'gif|jpeg|jpg|....'
+
+		// if in the frontend, we return JSON ready for use in js
+		if($this->wire('page')->template != 'admin') {
+			$jfuOptions = array();
+			$jfuOptions['JqueryFileUpload'] = $options;
+			$json = json_encode($jfuOptions);
+			return $json;
+		}
+
+		// else if in ProcessWire admin, we populate config->js()
+		else {
+			$jfuConfig = $this->wire('config')->js($this->className(), $options);// populate global config->js() with our jfu configs
+		}
+
+	}
+
+	/* ######################### - RENDER - ######################### */
+
+	/**
+	 * Add markup for all needed scripts.
+	 *
+	 * This is an alternative to using configJFUScripts.
+	 * Here we use <script></script>
+	 *
+	 * @access public
+	 * @param array $options Options to disable outputting certain scripts if some features not in use.
+	 * @see: https://github.com/blueimp/jQuery-File-Upload/wiki/Plugin-files.
+	 * @return string $out Markup to add to <head> or just before </body>.
+	 *
+	 */
+	public function renderJFUScripts($options = array()) {
 
 		$scripts = array (
 
@@ -259,9 +365,9 @@ class JqueryFileUpload extends WireData implements Module {
 
 			// 4. fileupload core
 			'fileupload|jquery.fileupload.min.js',// the basic plugin: enhances file upload process, without making assumptions about user interface or content-type of response
-			'fileupload|jquery.fileupload-process.min.js',// extends the basic version of the fileupload plugin and adds file processing functionality					
+			'fileupload|jquery.fileupload-process.min.js',// extends the basic version of the fileupload plugin and adds file processing functionality
 			'fileupload|jquery.fileupload-image.min.js',// extends the file processing plugin and adds image preview & resize functionality
-			'fileupload|jquery.fileupload-audio.min.js',// extends the file processing plugin and adds audio preview functionality		
+			'fileupload|jquery.fileupload-audio.min.js',// extends the file processing plugin and adds audio preview functionality
 			'fileupload|jquery.fileupload-video.min.js',// extends the file processing plugin and adds video preview functionality
 			'fileupload|jquery.fileupload-validate.min.js',// extends the file processing plugin and adds file validation functionality
 			'fileupload|jquery.fileupload-ui.min.js',// extends the file processing plugin and adds a complete user interface
@@ -275,7 +381,7 @@ class JqueryFileUpload extends WireData implements Module {
 			'gallery|jquery.blueimp-gallery.min.js',
 
 		);
-	
+
 		$url = $this->wire('config')->urls->$this;
 		$out = '';
 		foreach ($scripts as $script) {
@@ -290,14 +396,14 @@ class JqueryFileUpload extends WireData implements Module {
 			if(in_array('noAudioPreview', $options) && $folder == 'fileupload' && strpos($s,'audio') !== false) continue;
 			if(in_array('noVideoPreview', $options) && $folder == 'fileupload' && strpos($s,'video') !== false) continue;
 
-			// @todo: 
+			// @todo?:
 			/*<!-- The XDomainRequest Transport is included for cross-domain file deletion for IE 8 and IE 9 -->
 			<!--[if (gte IE 8)&(lt IE 10)]>
 			<script src="js/cors/jquery.xdr-transport.js"></script>
 			<![endif]-->*/
 
 			$out .= "\n\t<script type='text/javascript' src='". $url . "js/". $folder . "/" . $s ."'></script>";
-		
+
 		}
 
 		// also add our main js file unless custom script being used
@@ -308,18 +414,17 @@ class JqueryFileUpload extends WireData implements Module {
 	}
 
 	/**
-	* Add markup for all needed styles.
-	*	
-	* This is an alternative to using configJFUStyles.
-	* Here we use <link></link>
-	*
-	* @access public
-	* @param $options Array containing option to not output gallery CSS if gallery disabled.
-	* @return $out String Markup to add to <head>.
-	*/
+	 * Add markup for all needed styles.
+	 *
+	 * This is an alternative to using configJFUStyles.
+	 * Here we use <link></link>.
+	 *
+	 * @access public
+	 * @param array $options Contains option to not output gallery CSS if gallery disabled.
+	 * @return string $out Markup to add to <head>.
+	 *
+	 */
 	public function renderJFUStyles($options = array()) {
-
-		// @todo?: move to /site/assets/JqueryFileUpload/css ?
 		$url = $this->wire('config')->urls->$this;
 		$out = '';
 		if(!in_array('useCustomStyle', $options)) $out .= "\n\t\t<link href='". $url ."css/jqueryfileupload.css' type='text/css' rel='stylesheet'>\n";
@@ -328,126 +433,69 @@ class JqueryFileUpload extends WireData implements Module {
 	}
 
 	/**
-	* Outputs javascript configuration settings for this module.
-	*
-	* This will need to be output before the page is rendered.
-	* See documentation for an example.
-	* @note: We can pass any options we need (if different from the defaults) through $options.
-	* @note: Different output depending on if in the front or backend.
-	*
-	* @access public
-	* @param $options Array of options to override jQuery File Upload's plugin defaults.
-	* @return $json String| Add to $config->js() array. We return JSON if in the frontend but in backend populate $config->js().
-	*
-	*/
-	public function configsJFU($options = null) {
-		
-		$defaultJFUOptions = array(
-			"url" => "./",// by default we post to same page that sent the request
-			'acceptFileTypes' => 'gif jpeg jpg png mp3 pdf mp4',// @todo: why not just get from $this->defaultOptions()?
-			'showUploaded' => false,// by default, don't show files that have already been uploaded
-			'filesContainer' =>  '#files',
-			'dropZone' =>  '#dropzone',
-			'uploadTemplateId' =>  'null',
-			'downloadTemplateId' =>  'null',
-			'maxFileSize' => 2000000000,// 2GB
-			'loadImageMaxFileSize' => 100000000,// 100MB: The maximum file size of images to load
-			'loadVideoMaxFileSize' => 1000000000,// 1GB: The maximum file size of video files to load
-			'previewMinWidth' => 100,
-			'previewMinHeight' => 75,
-			'previewMaxWidth' => 100,
-			'previewMaxHeight' => 75,
-			'previewCrop' => true,// Define if preview images should be cropped or only scaled
-		);
-
-		// merge user options with default jfu configuration options
-		if($options != null && is_array($options)) $options = array_merge($defaultJFUOptions, $options);
-		else $options = $defaultJFUOptions;
-
-		// reformat accepted file types string
-		$acceptFileTypes = explode(' ', $options['acceptFileTypes']);// convert into array
-		$options['acceptFileTypes'] = implode('|', $acceptFileTypes);// convert into pipe-separated string, i.e. 'gif|jpeg|jpg|....'
-
-		// if in the frontend, we return JSON ready for use in js
-		if($this->wire('page')->template != 'admin') {
-			$jfuOptions = array();			
-			$jfuOptions['JqueryFileUpload'] = $options;
-			$json = json_encode($jfuOptions);
-			return $json;
-		}
-
-		// else if in ProcessWire admin, we populate config->js()
-		else {
-
-			$jfuConfig = $this->wire('config')->js($this->className(), $options);// populate global config->js() with our jfu configs
-		}		
-
-	}
-
-	/**
-	* Builds and renders the uploads widget.
-	*
-	* Outputs the uploads form, buttons/input for the actions 'add files, start upload, cancel button and delete' and uploads table list.
-	* @note: Developers can add extra checks in their code to control the display of this form widget, e.g. allow only registered users to see and upload.
-	* @see also $this->processJFUAjax() that controls access server-side.
-	*
-	* @access public
-	* @param $options Array of options to control rendering of uploads widget (e.g. whether to show download files or not, etc).
-	* @return $out String Markup of upload widget and table list.
-	*
-	*/
+	 * Builds and renders the uploads widget.
+	 *
+	 * Outputs the uploads form, buttons/input for the actions 'add files, start upload, cancel button and delete' and uploads table list.
+	 * @note: Developers can add extra checks in their code to control the display of this form widget, e.g. allow only registered users to see and upload.
+	 * @see also $this->processJFUAjax() that controls access server-side.
+	 *
+	 * @access public
+	 * @param array $options Options to control rendering of uploads widget (e.g. whether to show download files or not, etc).
+	 * @return strung $out Markup of upload widget and table list.
+	 *
+	 */
 	public function render($options = null) {
 
+		$this->processOptions($options);
 
-		$defaultOptions = $this->defaultOptions;
-
-		// merge user options with default render options
-		if($options != null && is_array($options)) $options = array_merge($defaultOptions, $options);
-		else $options = $defaultOptions;
+		$options = $this->options;
+		$this->uploadActionsRender = $options['uploadActionsRender'];
 
 		// CSRF
 		$session = $this->wire('session');
 		$tokenName = $session->CSRF->getTokenName();
 		$tokenValue = $session->CSRF->getTokenValue();
 
-		$token = "<input type='hidden' id='_post_token' name='" . $tokenName . "' value='" . $tokenValue . "'>";
+		$token = "\n\t\t<input type='hidden' id='_post_token' name='" . $tokenName . "' value='" . $tokenValue . "'>";
 
 		$out = '';
-		
+
 		// if implemented in a third-party module, let developer wrap below output in their own ProcessWire form
-		$formOut = $this->wire('page')->template == 'admin' ? false : true;
 
 		// if using this module's form for uploads. @note: developers can use the module but using their own custom forms for uploads
 		if((int) $options['useCustomForm'] === 0) {
 
 			// whether to output delete button.
-			// @note: this is only about displaying the button or not. 
-			// In $this->processJFUAjax() we also check, server-side, if delete is allowed. The default is NOT ALLOWED. 
+			// @note: this is only about displaying the button or not.
+			// In $this->processJFUAjax() we also check, server-side, if delete is allowed. The default is NOT ALLOWED.
 			// The setting can only be made via the API, server-side AND NOT client-side
 			$allowDelete = (int) $options["uploadsDeletable"];
-			
+
 			// the file upload form used as target for the file upload widget
-			$out .= "\n\t<div class='files_container'>";
-			
+			$out .= "\n\t<div class='jfu_files_container'>";
+
 			$disableUploads = $options['disableUploads'];
 
+			$targetElement = $options['targetElement'];
+
 			// if uploads disabled, we only output the table listing of uploads (if show uploads also enabled)
-			if($disableUploads == true) $out .= "<input id='fileupload' type='hidden'>";// if no form output with id#fileupload, need this to trigger jquery file upload plugin
+			// @note: if no form output with id#fileupload, need this to trigger jquery file upload plugin
+			if($disableUploads == true) $out .= "\n\t\t<input id='{$targetElement}' type='hidden'>";
 			else {
-			
+
 				// if NOT in a module in ProcessWire admin, we'll use our form
-				if($formOut) $out .= "\n\t\t<form id='fileupload' action='./' method='POST' enctype='multipart/form-data'>";
+				if(!$this->backendMode) $out .= "\n\t\t<form id='{$targetElement}' action='./' method='POST' enctype='multipart/form-data'>";
 				#$out .= "<noscript><input type='hidden' name='redirect' value='./'></noscript>;// @todo: unsure?
 				$out .= $token;
-				$out .= "\n\t\t\t<div class='row fileupload-buttonbar'>";// buttons bar wrapper @todo: needed? need .row class?
-				
+				$out .= "\n\t\t\t<div uk-grid class='row fileupload-buttonbar'>";// buttons bar wrapper
+
 				$extraCSSClass = $this->extraCSSClass;
 				$extraClass = $extraCSSClass ? ' action-buttons-wrapper-' . $extraCSSClass : '';
 
-				$out .= "\n\t\t\t\t<div class='action-buttons-wrapper" . $extraClass . "'>\n";// buttons wrapper
-				$paramName = $this->wire('sanitizer')->text($options['paramName']);// @todo: could be tricky sanitizing this!
-				$out .= "\n\t\t\t\t" . $this->renderActionButtons($allowDelete, $paramName);
-				
+				$out .= "\n\t\t\t\t<div class='uk-width-1-1 jfu_actions InputfieldHeader action-buttons-wrapper uk-" . $extraClass . "'>\n";// buttons wrapper
+
+				$out .= "\n\t\t\t\t" . $this->renderActionMarkup();
+
 				// the global file processing state
 				$out .= $this->renderFileProcessingState();
 				$out .= "\n\t\t\t\t</div>";// end action-buttons-wrapper
@@ -458,21 +506,59 @@ class JqueryFileUpload extends WireData implements Module {
 				$out .= "\n\t\t\t</div>"; // end div.fileupload-buttonbar
 
 				// drop zone
-				if((int) $options["enableDropZone"] === 1) $out .= $this->renderDropZone();
+				$out .= $this->renderUploadsArea();
 			}
 
 			$showGallery = (int) $options["showGallery"];
 
 			// the table listing the files available for upload/download
 			$filesContainer = $options['filesContainer'];
-			$out .= $this->renderUploadDownloadTableListing($allowDelete, $showGallery, $filesContainer);			
+			$out .= '<div uk-grid>' .$this->renderUploadDownloadList() . '</div>';
+			if(!$this->backendMode || !$disableUploads) $out .= "\n\t\t</form>";
 
-			if($formOut && $disableUploads == false) $out .= "\n\t\t</form>";
+			// @todo: we also need to control delete uploads here?
+			$out .= $this->renderMarkupTemplates();
 
-			$out .= "\n\t</div>";// end div.container
+			$out .= "\n\t</div><!-- end div.jfu_files_container -->";// end div.container
 
 			// if photo gallery enabled (@see: downloadTemplate property in jqueryfileupload.js)
-			if($showGallery === 1) $out .= $this->renderGalleryWidget();			
+			if($showGallery === 1) $out .= $this->renderGalleryWidget();
+		}
+
+		return $out;
+
+	}
+
+
+	/**
+	 * Renders the upload buttons/input for the actions 'add files, start upload, cancel button and delete'.
+	 *
+	 * For flexiblity, buttons/input can be rendered individually (see related methods).
+	 *
+	 * @access private
+	 * @return string $out Markup of action buttons.
+	 *
+	 */
+	private function renderActionMarkup() {
+
+
+		$out = '';
+
+		$options = $this->options;
+		$allowDelete = (int) $options["uploadsDeletable"];
+
+
+		// check if using custom action markup or using JFU inbuilt
+		$customActionMarkup  = $options['customJFUActionMarkup'];
+
+		if($customActionMarkup) $out .= $customActionMarkup;
+		else {
+			// start all uploads button
+			$out = "\n\t\t\t\t" . $this->renderStartUploads();
+			// cancel all uploads button
+			$out .= "\n\t\t\t\t" . $this->renderCancelUploads();
+			// delete selected uploads button
+			if((int) $allowDelete === 1) $out .= "\n\t\t\t\t" . $this->renderDeleteUploads();
 		}
 
 		return $out;
@@ -480,232 +566,464 @@ class JqueryFileUpload extends WireData implements Module {
 	}
 
 	/**
-	* Renders the upload buttons/input for the actions 'add files, start upload, cancel button and delete'.
-	*
-	* For flexiblity, buttons/input can be rendered individually (see related methods).
-	*
-	* @access private
-	* @param $allowDelete Integer whether deleting uploads is allowed, hence if to show delete uploads button.
-	* @param $paramName String the name of the upload file <input>.
-	* @return $out String Markup of action buttons.
-	*
-	*/	
-	private function renderActionButtons($allowDelete = 0, $paramName) {
+	 * Render the 'Choose files to upload' area.
+	 *
+	 * It is designed to resemble ProcessWire image uploads markup.
+	 *
+	 * @access private
+	 * @return string $out Markup of the choose files area.
+	 *
+	 */
+	private function renderChooseFiles() {
 
+		$options = $this->options;
+		$paramName = $this->wire('sanitizer')->text($options['paramName']);
 		if(!$paramName) $paramName = 'files';
 
-		$out = "\n\t\t\t\t" . $this->renderAddUploadsButton($paramName);// add files 'button': <input type='file'>
-		$out .= "\n\t\t\t\t" . $this->renderStartUploadsButton();// start all uploads button
-		$out .= "\n\t\t\t\t" . $this->renderCancelUploadsButton();// cancel all uploads button
-		if((int) $allowDelete === 1) $out .= "\n\t\t\t\t" . $this->renderDeleteUploadsButton();// delete selected uploads button
+		$out =
+			"<div class='InputfieldImageUpload uk-width-1-2'>" .
+				//	@todo: get the css for this from Fieldtypeimage and use instead of depending on InputMask?
+				"<div class='InputMask ui-button ui-state-default'>" .
+					"<span class='ui-button-text'><i class='fa fa-fw fa-folder-open-o'></i>" .
+						$this->_("Choose Files") .
+					"</span>" .
+					"\n\t\t\t\t<input type='file' name='{$paramName}[]'  multiple='multiple'>" .
+				"</div>" .// end .InputMask
+			"</div>";// .InputfieldImageUpload
 
 		return $out;
 
 	}
 
 	/**
-	* Renders the add files/uploads 'button'.
-	*
-	* Technically this is a file input styled to resemble a button.
-	*
-	* @access private
-	* @param $paramName String the name of the upload file <input>.
-	* @return $out String Markup of add files/uploads action 'button'.
-	*
-	*/
-	private function renderAddUploadsButton($paramName) {
+	 * Renders the start all uploads button.
+	 *
+	 * @access private
+	 * @return string $out Markup of start uploads action button.
+	 *
+	 */
+	private function renderStartUploads() {
 
-		if(!$paramName) $paramName = 'files';
-		
-		$out ='<span id="add_files" class="files_upload btn btn-success fileinput-button">' . 
-			'<span>' . $this->_('Add files') . '...</span>' .
-			'<input type="file" name="' . $paramName . '[]" multiple>' .
-			'</span>';
+		// @todo: fontawesome fallback here?
+		$actionsRenderModes = array(1=>' class="uk-button uk-button-default"', 2=>' uk-icon="cloud-upload"', 3=>'');
+		$actionType = $actionsRenderModes[$this->uploadActionsRender];
 
-		return $out;
-
-	}
-
-	/**
-	* Renders the start all uploads button.
-	*
-	* @access private
-	* @return $out String Markup of start uploads action button.
-	*
-	*/
-	private function renderStartUploadsButton() {
-
-		$b = $this->wire('modules')->get('InputfieldButton');
-		$b->attr('id+name', 'start_upload'); 
-		$b->value = $this->_('Start uploads');
-		$b->attr('type', 'submit');
-		$b->class .= ' files_upload start';
-
-		$out = $b->render();
+		$startTitle = $this->_('Start');
+		$startText = '';
+		if($this->uploadActionsRender !=2) $startText = $startTitle;
+		// if using buttons, remove title
+		if($this->uploadActionsRender == 1) $startTitle = '';
+		$out =
+			"<span class='jfu_start start uk-margin-small-right'>" .
+				"<a id='jfu_start_upload' class='ui-button ui-state-default' href='#' title='{$startTitle}'{$actionType}>{$startText}</a>".
+			"</span>";
 
 		return $out;
 
 	}
 
 	/**
-	* Renders the cancel all uploads button.
-	*
-	* @access private
-	* @return $out String Markup of cancel uploads action button.
-	*
-	*/
-	private function renderCancelUploadsButton() {
+	 * Renders the cancel all uploads button.
+	 *
+	 * @access private
+	 * @return string $out Markup of cancel uploads action button.
+	 *
+	 */
+	private function renderCancelUploads() {
 
-		$b = $this->wire('modules')->get('InputfieldButton');
-		$b->attr('id+name', 'cancel_upload'); 
-		$b->value = $this->_('Cancel uploads');
-		$b->attr('type', 'reset');
-		$b->class .= ' files_upload cancel';
+		// @todo: fontawesome fallback here?
+		$actionsRenderModes = array(1 => ' class="uk-button uk-button-default"', 2=>' uk-icon="ban"', 3=>'');
+		$actionType = $actionsRenderModes[$this->uploadActionsRender];
 
-		$out = $b->render();
-
-		return $out;
-
-	}
-
-	/**
-	* Renders the start all uploads button.
-	*
-	* @access private
-	* @return $out String Markup of delete uploads action button.
-	*
-	*/
-	private function renderDeleteUploadsButton() {
-
-		$b = $this->wire('modules')->get('InputfieldButton');
-		$b->attr('id+name', 'delete_selected'); 
-		$b->value = $this->_('Delete selected');
-		$b->class .= ' files_upload delete';
-		$selAll = '<input type="checkbox" class="toggle">';// select all uploads (their checkboxes)
-
-		$out = $b->render() . $selAll;
+		$cancelTitle = $this->_('Cancel');
+		$cancelText = '';
+		if($this->uploadActionsRender !=2) $cancelText = $cancelTitle;
+		// if using buttons, remove title
+		if($this->uploadActionsRender == 1) $cancelTitle = '';
+		$out =
+			"<span class='jfu_cancel cancel uk-margin-small-right'>" .
+				"<a id='jfu_cancel_upload' class='ui-button ui-state-default ui-priority-secondary' href='#' title='{$cancelTitle}'{$actionType}>{$cancelText}</a>".
+			"</span>";
 
 		return $out;
 
 	}
 
 	/**
-	* Render markup for The global progress state.
-	*
-	* @code: taken from the blueimp jquery file upload demo.
-	*
-	* @access private
-	* @return $out String Markup for global progress state.
-	*
-	*/
+	 * Renders the delete all uploads button unless custom action markup is in use.
+	 *
+	 * If custom markup is in use, that will be used instead.
+	 *
+	 * @access private
+	 * @return string $out Markup of delete uploads action button.
+	 *
+	 */
+	private function renderDeleteUploads() {
+
+
+		$out = '';
+		// @todo: fontawesome fallback here?
+		$actionsRenderModes = array(1 => ' class="uk-button uk-button-default"', 2=>' uk-icon="trash"', 3=>'');
+		$actionType = $actionsRenderModes[$this->uploadActionsRender];
+
+		$deleteTitle = $this->_('Delete');
+		$deleteText = '';
+		if($this->uploadActionsRender !=2) $deleteText = $deleteTitle;
+		$deleteTitleMarkup = $this->uploadActionsRender ==2 ? " title='{$deleteTitle}'" : '';
+
+		$options = $this->options;
+		// check if using custom action markup or using JFU inbuilt
+		// if custom, we don't show delete button; just the checkbox
+		$customActionMarkup  = $options['customJFUActionMarkup'];
+
+		if(!$customActionMarkup) {
+			$out .=
+			"<span class='jfu_delete delete uk-margin-small-right'>" .
+				"<a id='jfu_delete_upload' href='#'{$deleteTitleMarkup}{$actionType}>{$deleteText}</a>".
+			"</span>";
+		}
+
+		// select uploads checkboxes
+		$out .= "<input type='checkbox' class='uploaded_file toggle uk-checkbox uk-form-controls-text'>";
+
+		return $out;
+
+	}
+
+	/**
+	 * Render markup for The global progress state.
+	 *
+	 * @code: taken from the blueimp jquery file upload demo.
+	 *
+	 * @access private
+	 * @return string $out Markup for global progress state.
+	 *
+	 */
 	private function renderGlobalProgressState() {
 
 		// the global progress state
-		$out = "\n\t<div class='fileupload-progress fade'>" . 
-					// the global progress bar
-					"\n\t\t<div class='progress progress-striped active' role='progressbar' aria-valuemin='0' aria-valuemax='100'>" . 
-						"\n\t\t\t<div class='progress-bar progress-bar-success' style='width:0%;'></div>" .
-					"\n\t\t</div>" .
-					// the extended global progress state
-					"\n\t\t<div class='progress-extended'>&nbsp;</div>" .
-				"\n\t</div>";
+		$out =
+			"\n\t<div class='jfu_actions uk-width-1-1 fileupload-progress fade'>" .
+				// the global progress bar
+				"\n\t\t<div class='progress progress-striped active' role='progressbar' aria-valuemin='0' aria-valuemax='100'>" .
+					"\n\t\t\t<div class='progress-bar progress-bar-success' style='width:0%;'></div>" .
+				"\n\t\t</div>" .
+				// the extended global progress state
+				"\n\t\t<div class='progress-extended'>&nbsp;</div>" .
+			"\n\t</div>";
 
 		return $out;
 
 	}
 
 	/**
-	* Render markup for the table listing for uploads/donwloads.
-	*
-	* @code: taken from the blueimp jquery file upload demo.
-	*
-	* @access private
-	* @param $allowDelete Integer if deleting uploads is allowed. Used to set data attribute 'data-deletable' to control individual delete buttons (js).
-	* @param $showGallery Integer Will be used to determine whether to enable a gallery of uploaded media.
-	* @param $filesContainer String ID of the tbody element that will hold files listed for upload/download.
-	* @return $out String Markup for table listing for files ready for upload/download.
-	*
-	*/
-	private function renderUploadDownloadTableListing($allowDelete = 0, $showGallery = 1, $filesContainer = 'files') {
-		// the table listing the files available for upload/download
-		$out = "\n\t<table role='presentation' class='files_list table-striped' data-deletable='" . $allowDelete ."' data-show-gallery='" . $showGallery . "'>".
+	 * Render markup for the table listing for uploads/donwloads.
+	 *
+	 * @code: taken from the blueimp jquery file upload demo.
+	 *
+	 * @access private
+	 * @return string $out Markup for table listing for files ready for upload/download.
+	 *
+	 */
+	private function renderUploadDownloadList() {
+
+		$options = $this->options;
+
+		$allowDelete = (int) $options["uploadsDeletable"];
+		$showGallery = (int) $options["showGallery"];
+		$filesContainer = $options['filesContainer'];
+
+		$out = '';
+
+		$label = $this->_('Uploaded Files');
+		$notes = $this->_('Files to action.');
+
+		$out .=
+			"\n\t<div class='jfu-uploaded-files-list uk-overflow-auto uk-width-1-1'>".
+				"<h3 class='InputfieldHeader uk-form-label'>{$label}</h3>" .
+				"<p class='jfu-uploaded-files-note notes'>{$notes}</p>" .
+				"<table id='jfu-files-list' role='presentation' class='files_list uk-table uk-table-divider uk-table-hover uk-table-justify uk-table uk-table-middle uk-table-responsive' data-deletable='{$allowDelete}' data-show-gallery='{$showGallery}'>".
+					"<thead>" .
+						"<tr>" .
+							"<th class='uk-width-1-4'>" . $this->_('Preview') . "</th>" .
+							"<th class='uk-table-expand'>" . $this->_('Name') . "</th>" .
+							"<th class='uk-width-small'>" . $this->_('Size') . "</th>" .
+							"<th class='uk-width-medium'>" .
+								"<input type='checkbox' class='toggle_all uk-checkbox uk-form-controls-text' title='Select All'>".
+							"</th>" .
+						"</tr>" .
+					"</thead>" .
 					"\n\t\t<tbody id='" . $filesContainer . "'></tbody>\n".
-				"\t</table>\n";
+				"\t</table></div>\n";
+
 		return $out;
+
 	}
 
 	/**
-	* Render markup for the global file processing state.
-	*
-	* @code: taken from the blueimp jquery file upload demo.
-	*
-	* @access private
-	* @return $out String Markup for file processing state.
-	*
-	*/
+	 * Render markup for the global file processing state.
+	 *
+	 * @code: taken from the blueimp jquery file upload demo.
+	 *
+	 * @access private
+	 * @return string $out Markup for file processing state.
+	 *
+	 */
 	private function renderFileProcessingState() {
 		// the global file processing state
 		$out = "\n\t<span class='fileupload-process'></span>\n";
 		return $out;
-	}	
+	}
 
 	/**
-	* Render markup for files' dropzone.
-	*
-	* @code: taken from the blueimp jquery file upload demo.
-	*
-	* @access private
-	* @return $out String Markup of dropzone area.
-	*
-	*/
-	private function renderDropZone() {
-		$out = "\n\t<div id='dropzone' class='fade well'>" . // @todo: do we need 'well'?
-				"\n\t\t<h3 id='add_menu_items'>" . $this->_("Drop files here") . "</h3>\n".
-				"\t</div>";
+	 * Render icons for allowed file types.
+	 *
+	 * @note: not currently in use. Option being considered for future versions.
+	 *
+	 * @access private
+	 * @return string $out Markup of icons.
+	 *
+	 */
+	private function renderAllowedMediaIcons() {
+		$out =
+			"<span class='uk-margin-small-right' uk-icon='play' title='Audio'></span>" .
+			"<span class='uk-margin-small-right' uk-icon='file' title='Document'></span>" .
+			"<span class='uk-margin-small-right' uk-icon='image' title='Image'></span>" .
+			"<span class='uk-margin-small-right' uk-icon='video-camera' title='Video'></span>";
 		return $out;
 	}
 
 	/**
-	* Render markup for the blueimp Gallery Widget.
-	*
-	* @code: taken from the blueimp jquery file upload demo.
-	*
-	* @access public
-	* @param $filterDuplicates
-	* @return $out String Markup of action buttons.
-	*
-	*/
-	public function renderGalleryWidget($filterDuplicates = true) {
+	 * Render string of allowed file type extensions.
+	 *
+	 * @access private
+	 * @return string $out Markup of allowed file extensions.
+	 *
+	 */
+	private function renderAllowedFileExtensions() {
+		$out =
+		'<div class="Allowed extensions uk-width-1-1">'.
+			'<span class="detail">'.$this->options['renderAllowedFileExtensions'].'</span>' .
+		'</div>';
+		return $out;
+	}
+
+	/**
+	 * Render fontawesome icons for allowed file types.
+	 *
+	 * @note: not currently in use. Option being considered for future versions.
+	 *
+	 * @access private
+	 * @return string $out Markup of fontawesome icons.
+	 *
+	 */
+	private function renderAllowedMediaIconsFA() {
+		$out =
+			"<i class='uk-margin-small-right fa fa-headphones' aria-hidden='true'></i>" .
+			"<i class='uk-margin-small-right fa fa-file-text-o' aria-hidden='true'></i>" .
+			"<i class='uk-margin-small-right fa fa-picture-o' aria-hidden='true'></i>" .
+			"<i class='uk-margin-small-right fa fa-video-camera' aria-hidden='true'></i>";
+		return $out;
+	}
+
+	/**
+	 * Render the uploads area for choosing files and the dropzone.
+	 *
+	 * @access private
+	 * @return string $out Markup of the uploads area.
+	 *
+	 */
+	private function renderUploadsArea() {
+
+		$dropZoneClass =  (int) $this->options["enableDropZone"] === 1 ? ' jfu_dropzone' : '';
+
+		$out =
+			"<div id='jfu_drop_area_wrapper'>" .
+				"<h3 class='InputfieldHeader uk-form-label'>Select Files</h3>" .
+				"<div class='drop-files-container{$dropZoneClass}' uk-grid>" .
+					// allowed extensions (@note: uk-width-1-1)
+					$this->renderAllowedFileExtensions().
+					// masked file input (@note: uk-width-1-2)
+					$this->renderChooseFiles() .
+					// drop zone (@note: uk-width-1-2)
+					$this->renderDropZone() .
+				"</div>" .
+			"</div>";
+
+		return $out;
+
+	}
+
+	/**
+	 * Render the JFU dropzone markup.
+	 *
+	 * @access private
+	 * @return string $out Markup of the dropzone area.
+	 *
+	 */
+	private function renderDropZone() {
+		$options = $this->options;
+		$out = '';
+		if((int) $options["enableDropZone"] === 1)  {
+			$out =
+			"<div class='jfu-drop-zone-text uk-position-center-right uk-text-right uk-width-1-2'>" .
+				"\n\t\t\t<span class='description' style='display: inline;'>" .
+					"\n\t\t\t\t<span><i class='fa fa-cloud-upload'></i>&nbsp;".$this->_('drag and drop files here')."</span>" .
+				"</span>" .
+			"</div>";
+		}
+		return $out;
+	}
+
+	/**
+	 * Render markup of the JFU Upload Anywhere widget.
+	 *
+	 * @access private
+	 * @return string $out Markup of upload anywhere widget.
+	 *
+	 */
+	public function renderUploadAnywhereWidget() {
+
+		$spinner = '<span class="mm_upload_anywhere_spinner"><i class="fa fa-lg fa-spin fa-spinner"></i></span>';
+
+		$uploadPercentCounter ='<span class="jfu_upload_anywhere_percent_counter"></span>';
+		$uploadHeadline =
+			'<span class="jfu_upload_anywhere_uploading">' . $this->_('Uploading') .
+				' <span class="jfu_upload_anywhere_count">0</span> ' .
+			$this->_('media') . '</span>';
+
+		$uploadCompleteHeadline =
+			'<span class="jfu_upload_anywhere_complete">' .
+				$this->_('Upload complete') .
+			'</span>';
+		// show just in case upload complete but processing still going on server-sie
+		$processingHeadline =
+			'<span class="jfu_upload_anywhere_processing">' .
+				$this->_('Processing') . $spinner .
+			'</span>';
+
+		$out =
+			'<div class="jfu_upload_anywhere_widget ui-dialog">' .
+				'<div class="jfu_upload_anywhere_widget_header ui-dialog-titlebar">'.
+					'<p class="clearfix">' .
+						$uploadPercentCounter . $uploadHeadline . $uploadCompleteHeadline  . $processingHeadline .
+						'<a class="jfu_upload_anywhere_cancel_all" href="#" >' . $this->_('Cancel') . '</a>'.
+					'</p>' .
+				'</div>'.
+				'<div id="jfu_upload_anywhere_widget_info">'.
+					'<ul class="jfu_upload_anywhere_widget_info_list" data-uploads-count="0"></ul>'.
+				'</div>'.
+			'</div>';
+
+		return $out;
+	}
+
+	/**
+	 * Render markup for the blueimp Gallery Widget.
+	 *
+	 * @code: taken from the blueimp jquery file upload demo.
+	 *
+	 * @access public
+	 * @param bool $filterDuplicates Whether to filter for duplicates
+	 * @param string $id HTML ID for the gallery.
+	 * @return string $out Markup of action buttons.
+	 *
+	 */
+	public function renderGalleryWidget($filterDuplicates = true, $id = '') {
+
+		$galleryID = $id ? $id : 'blueimp-gallery';
 
 		// the blueimp Gallery Widget
 		// @note: 'The jQuery plugin also introduces the additional filter option, which is applied to the Gallery links via jQuery's filter method and allows to remove duplicates from the list:'
 		// @see: https://github.com/blueimp/Gallery#html5-data-attributes
 		$dataFilter = $filterDuplicates ? " data-filter=':even'" : '';
-		$out = "\n\t<div id='blueimp-gallery' class='blueimp-gallery blueimp-gallery-controls'$dataFilter>" . // ensure duplicates removed where necessary
-					"\n\t\t<div class='slides'></div>" .
-					"\n\t\t<h3 class='title'></h3>" .
-					"\n\t\t<a class='prev'>‹</a>" .
-					"\n\t\t<a class='next'>›</a>" .
-					"\n\t\t<a class='close'>×</a>" .
-					"\n\t\t<a class='play-pause'></a>" .
-					"\n\t\t<ol class='indicator'></ol>" .
-					"\n\t</div>";
+		$out =
+			"\n\t<div id='{$galleryID}' class='blueimp-gallery blueimp-gallery-controls'$dataFilter>" . // ensure duplicates removed where necessary
+				"\n\t\t<div class='slides'></div>" .
+				"\n\t\t<h3 class='title'></h3>" .
+				"\n\t\t<p class='caption'></p>" .// placeholder for description label
+				"\n\t\t<a class='prev'>‹</a>" .
+				"\n\t\t<a class='next'>›</a>" .
+				"\n\t\t<a class='close'>×</a>" .
+				"\n\t\t<a class='play-pause'></a>" .
+				"\n\t\t<ol class='indicator'></ol>" .
+			"\n\t</div><!-- end div.blueimp-gallery -->";
 
 		return $out;
 
 	}
 
+
+	/* ######################### - TEMPLATE - ######################### */
+
 	/**
-	* Handle file uploads ajax requests.
-	*
-	* If OK, requests are passed to $this->processUploads().
-	* @see: notes below + notes in __construct().
-	*
-	* @access public
-	* @param $options Array of options on how to handle upload/list/delete files ajax request.
-	* @return $data String JSON-encoded string.
-	*
-	*/
+	 * Render template markup for the table listing for uploads/donwloads.
+	 *
+	 * @code: taken from the blueimp jquery file upload demo.
+	 *
+	 * @access private
+	 * @return string $out Markup for table listing for files ready for upload/download.
+	 *
+	 */
+	private function renderMarkupTemplates() {
+
+		$start = $this->_('Start upload');
+		$delete = $this->_('Delete');
+		$finished = $this->_('Upload finished');
+		$cancel = $this->_('Cancel');
+		$failed = $this->_('Upload failed');
+		$invalidFileType = $this->_('File type not allowed');
+		$serverError = $this->_('Server error.');
+
+		$out =
+			"\n\t\t<div id='jfu_markup_templates' class='jfu_hide'>" .
+
+					# start icon
+					"\n\t\t\t<div class='jfu_uploads_start jfu_single_action' title='{$start}'>" .
+						"\n\t\t\t\t".$this->renderStartUploads().
+					"\n\t\t\t</div>" .
+					# cancel icon
+					"\n\t\t\t<div class='jfu_uploads_cancel jfu_single_action' title='{$cancel}'>" .
+						"\n\t\t\t\t".$this->renderCancelUploads().
+					"\n\t\t\t</div>" .
+					# delete
+					"\n\t\t\t<div class='jfu_uploads_delete jfu_single_action jfu_hide' title='{$delete}'>" .
+					"\n\t\t\t\t".$this->renderDeleteUploads().
+					"\n\t\t\t</div>" .
+					# done/delete @todo: do we still need this?
+					"\n\t\t\t<div class='jfu_uploads_done jfu_single_action' title='{$delete}'>" .
+						"\n\t\t\t\t<i class='fa fa-check-circle jfu_action' aria-hidden='true'></i>".
+						"\n\t\t\t\t<i class='fa fa-times-circle jfu_delete jfu_action' aria-hidden='true'></i>".
+						"\n\t\t\t\t<input class='jfu_action_delete toggle jfu_hide' value='' name='delete' type='checkbox'>".
+					"\n\t\t\t</div>" .
+					# fail
+					"\n\t\t\t<div class='jfu_uploads_fail jfu_single_action' title='{$failed}'>" .
+						"\n\t\t\t\t<i class='fa fa-ban fail' aria-hidden='true'></i>".
+					"\n\t\t\t</div>" .
+					# invalid file type
+					"\n\t\t\t<span class='jfu_uploads_invalid_file_type error'>{$invalidFileType}</span>" .
+					# server error
+					"\n\t\t\t<span class='jfu_uploads_server_error'>{$serverError}</span>" .
+			"\n\t\t</div><!-- end div#jfu_markup_templates -->";
+
+		return $out;
+
+
+	}
+
+	/* ######################### - PROCESS - ######################### */
+
+	/**
+	 * Handle file uploads ajax requests.
+	 *
+	 * If OK, requests are passed to $this->processUploads().
+	 * @see: notes below + notes in __construct().
+	 *
+	 * @access public
+	 * @param array $options Array of options on how to handle upload/list/delete files ajax request.
+	 * @return string $data JSON-encoded string.
+	 *
+	 */
 	public function processJFUAjax($options = null) {
 
 		/*
@@ -713,48 +1031,47 @@ class JqueryFileUpload extends WireData implements Module {
 				1. Nothing gets deleted unless expressely requested via the API server-side, i.e. pass as an option in $options
 				2. Nothing gets listed unless expressely requested via the API, server-side, i.e. passed as an option in $options
 				3. Uploads are sent to a quarantined area, by default, a non-web-accessible folder
+				4. if disableUploads: we don't upload; we block server-side as well
 		*/
+
+		if(!is_array($options)) return;
+		// uploads disabled server-side, abort (do not upload at all)
+		if(isset($options['disableUploads']) && $options['disableUploads']) return;
 
 		// we only listen to ajax requests
 		if ($this->wire('config')->ajax) {
 
-			$defaultOptions = $this->defaultOptions;
-
-			// merge user options with default ajax processing options
-			if($options != null && is_array($options)) $options = array_merge($defaultOptions, $options);
-			else $options = $defaultOptions;
+			$this->processOptions($options);
+			$options = $this->options;
 
 			$data = array();// for our JSON to feed back to jquery file upload plugin
 			$files = array();// only to hold files to delete
 
 			$input = $this->wire('input')->post;
 			$sanitizer = $this->wire('sanitizer');
-			
+
 			$paramName = $options['paramName'];
 			$uploads = isset($_FILES[$paramName]) && count($_FILES[$paramName]) ? true : false;// @note: $_FILES sent internally by jquery file upload plugin
-			$list = $sanitizer->name($input->jfu_list);// show/list uploads request @note: below we confirm if request also okayed server-side		
+			$list = $sanitizer->name($input->jfu_list);// show/list uploads request @note: below we confirm if request also okayed server-side
 			$delete = $sanitizer->name($input->jfu_delete);
-			
+
 			if($list === 'list') {
 				// check server-side if it is OK to show files (in table list in form widget) that have been uploaded to the web-accessible folder
-				if((int) $options['showUploaded'] === 1) {
-					$data = $this->processUploads($action='list', $options);
-				}
+				if((int) $options['showUploaded'] === 1) $data = $this->processUploads($list);
 				else $data['message'] = $this->_('error');
 			}
 
 			// @note: in $this->processUploads() we'll also confirm uploads are allowed server-side
-			elseif($uploads) $data = $this->processUploads($action='uploads', $options);// @note: further validation checks later in the code
+			elseif($uploads) $data = $this->processUploads('uploads');// @note: further validation checks later in the code
 
-			// delete uploads request @note: we confirm request also okayed server-side			
+			// delete uploads request @note: we confirm request also okayed server-side
 			elseif($delete === 'delete') {
 				$files = $input->jfu_files;// array
 				if(is_array($files) && count($files)){
-					if((int) $options['uploadsDeletable'] === 1) $data = $this->processUploads($action='delete', $options, $files);		
+					if((int) $options['uploadsDeletable'] === 1) $data = $this->processUploads($delete, $files);
 					else $data['message'] = $this->_('error');
 				}
 				else $data['message'] = $this->_('error');
-			
 			}
 
 			// determine whether to return a JSON response OR an array
@@ -763,25 +1080,26 @@ class JqueryFileUpload extends WireData implements Module {
 
 			if($responseType === 2) return $data;// return array
 			elseif($responseType === 1) {// return JSON
-					echo json_encode($data);
-					exit;
+				echo json_encode($data);
+				exit;
 			}
-			
+
 		}// end if ajax
 
 	}
 
 	/**
-	* Send files' action requests to relevant methods.
-	*	
-	* @access private
-	* @param $action String One of three possible actions to take.
-	* @param $options Array of options to guide actions.
-	* @param $files Null If delete request, needs array of files sent via post to process.
-	* @return $data Array with information about processed files or error message.
-	*
-	*/
-	private function processUploads($action = '', Array $options, $files = null) {
+	 * Send files' action requests to relevant methods.
+	 *
+	 * @access private
+	 * @param string $action One of three possible actions to take.
+	 * @param null|array $files If delete request, needs array of files sent via post to process.
+	 * @return array $data Information about processed files or error message.
+	 *
+	 */
+	private function processUploads($action = '', $files = null) {
+
+		$options = $this->options;
 
 		$data = array();// for our JSON to feed back
 
@@ -790,26 +1108,50 @@ class JqueryFileUpload extends WireData implements Module {
 			return;
 		}
 
-		$disableUploads = $options['disableUploads'];// check if uploads disabled server-side
+		// check if uploads disabled server-side
+		// @note: not really needed as we already abort in processJFUAjax()
+		$disableUploads = $options['disableUploads'];
 
-		if($action === 'list') $data = $this->getUploads($options);// get the uploads. Returns array of files and their properties
-		elseif($action === 'uploads' && $disableUploads == false) $data = $this->saveUploads($options);// save uploads
-		elseif($action === 'delete' && $files != null) $data = $this->deleteUploads($options, $files);// delete uploads
+		// get the uploads. Returns array of files and their properties
+		if($action === 'list') $data = $this->getUploads();
+		// save uploads
+		elseif($action === 'uploads' && $disableUploads == false) $data = $this->saveUploads();
+		// delete uploads
+		elseif($action === 'delete' && $files != null) $data = $this->deleteUploads($files);
 		else $data['message'] = $this->_('error');
-		
+
 		return $data;
 
 	}
-	
+
 	/**
-	* Process request to list uploads.
-	*
-	* @access private
-	* @param $options Array of options to guide fetching uploads actions.
-	* @return $uploads Array feteched with files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
-	*
-	*/
-	private function getUploads(Array $options) {
+	 * Merge default and custom options.
+	 *
+	 * @access private
+	 * @param array $options Custom options set by user.
+	 * @return void
+	 *
+	 */
+	private function processOptions($options) {
+		$defaultOptions = $this->defaultOptions;
+		// merge user options with default render options
+		if($options != null && is_array($options)) $options = array_merge($defaultOptions, $options);
+		else $options = $defaultOptions;
+		$this->options = $options;
+	}
+
+	/* ######################### - CRUD - ######################### */
+
+	/**
+	 * Process request to list uploads.
+	 *
+	 * @access private
+	 * @return array $uploads Fetched with files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
+	 *
+	 */
+	private function getUploads() {
+
+		$options = $this->options;
 
 		if(!count($options)) {
 			$data['message'] = $this->_('error');
@@ -820,8 +1162,9 @@ class JqueryFileUpload extends WireData implements Module {
 		if((int) $options['showUploaded'] !== 1) return;
 
 		$uploads = array();
-
-		$options['createThumb'] = false;// prevents (re)creating image thumbnails down the line past $this->validateFile()
+		$uploads['count_fail'] = 0;// @note: just for consistency
+		$fileCount = 0;
+		$this->options['createThumb'] = false;// prevents (re)creating image thumbnails down the line past $this->validateFile()
 
 		// if we made it here then it means we want to show uploads so we hit the web-accessible files directory
 		$uploadsDir = $options['uploadsDir'];// web-accessible directory
@@ -829,40 +1172,45 @@ class JqueryFileUpload extends WireData implements Module {
 		$uploadsURL = $options['uploadsURL'];// ditto
 		$thumbsURL = $options['thumbsURL'];// ditto
 
-		if(!is_dir($uploadsDir)) wireMkdir($uploadsDir, true);
-		if(!is_dir($thumbsDir)) wireMkdir($thumbsDir, true);
+		$files = $this->wire('files');
+		if(!is_dir($uploadsDir)) $files->mkdir($uploadsDir, true);
+		if(!is_dir($thumbsDir)) $files->mkdir($thumbsDir, true);
 
-		$files = new DirectoryIterator($uploadsDir);//read current directory
+		$files = new \DirectoryIterator($uploadsDir);//read current directory
 
 		foreach ($files as $file) {
-		
-			if(!$file->isFile()) continue;//if a directory skip it
-			
+
+			if(!$file->isFile()) continue;// if a directory skip it
+
 			$name = $file->getBasename();
 			//$path = $file->getPath() . '/' . $name;
 			$path = $file->getRealPath();
-			
+
 			// although we double-checked and validated files on upload
 			// we also validate before outputting
-			$valid = $this->validateFile($path, $options);// returns an array
+			$valid = $this->validateFile($path);// returns an array
 
 			if($valid['valid'] == false) {
-				unlink($path);// delete invalid file. @todo: put this in docs
+				unlink($path);// delete invalid file.
 				continue;
 			}
-		
+
+			$fileCount++;
+
 			$upload = array();
 			$upload['name'] = $name;
 			$upload['size'] = filesize($path);
+			$upload['formattedSize'] = $this->humanReadableFilesize(filesize($path));
 			$upload['url'] = $uploadsURL . $name;
 			// check if file is an image. if yes, grab its thumbnail if one exists
-			if($valid['isImage'] == true) {				
+			if($valid['isImage'] == true) {
 				$thumbPath = $thumbsDir . $name;
 				if(is_file($thumbPath)) $upload['thumbnailUrl'] = $thumbsURL . $name;
 			}
 
 			$uploads['files'][] = $upload;// add all found files to our uploads array
-		
+			$uploads['count_total'] = $fileCount;
+
 		}
 
 		return $uploads;
@@ -870,47 +1218,62 @@ class JqueryFileUpload extends WireData implements Module {
 	}
 
 	/**
-	* Validate and save uploads.
-	*
-	* @note: Here we only validate file extensions.
-	* Further down the code we check for mime types and also validate images as 'real'.
-	*
-	* @access private
-	* @param $options Array of options to guide saving actions.
-	* @return $data Array with saved files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
-	*
-	*/
-	private function saveUploads(Array $options) {
+	 * Validate and save uploads.
+	 *
+	 * @note: Here we only validate file extensions.
+	 * Further down the code we check for mime types and also validate images as 'real'.
+	 *
+	 * @access private
+	 * @return array $data Saved files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
+	 *
+	 */
+	private function saveUploads() {
 
 		$this->wire('session')->CSRF->validate();// validate against CSRF
 
+
+		$options = $this->options;
 		$data = array();
+
+		$uploadedFileNamesArray = $_FILES['files']['name'];
+
+
+		$decompressZipFiles = $options['unzipFiles'] && $this->backendMode && count(preg_grep ('/.zip$/i', $uploadedFileNamesArray)) ? true : false;
+
 
 		$dir = $options['privateUploadsDir'];// non-web-accessible directory
 
 		// if showing uploads, we need to use the web-accessible directory
 		if((int) $options['showUploaded'] === 1) $dir = $options['uploadsDir'];// web-accessible directory
 
-		// Check if destination folder exists; if not, attempt to create it. For thumbs, it is not crucial to check here; we'll do that in $this->createThumbnails()
-		if(!is_dir($dir)) wireMkdir($dir, true);
+		// in unzipping, create a temporary folder inside our uploads folder
+		$destinationPath = $decompressZipFiles ? $dir . "temp/" : $dir;
+
+		$this->dir = $dir;
+
+		/*
+			- Check if destination folder exists; if not, attempt to create it.
+			- For thumbs, it is not crucial to check here; we'll do that in $this->createThumbnails()
+		*/
+		if(!is_dir($destinationPath)) $this->wire('files')->mkdir($destinationPath, true);
 		// double check if the directory creation was successful
-		if(!is_dir($dir) || !is_writable($dir)) {
+		if(!is_dir($destinationPath) || !is_writable($destinationPath)) {
 			$data['message'] = $this->_('error');
-			return $data; 
+			return $data;
 		}
 
 		// process uploaded files
 		// @note: later, via $this->getResponse() we validate Mime Types
 		$acceptFileTypes = explode(' ', $options['acceptFileTypes']);// to check for valid extensions. Convert the string to an array
 
-		set_time_limit(60);// try to avoid timing out
+		set_time_limit(120);// try to avoid timing out
 
 		// get new WireUpload to process files
 		$uploadMedia = new WireUpload($options['paramName']); // The name of upload media <input type='file'> in the <form>
 		$uploadMedia->setOverwrite($options['setOverwrite']);
-		#if(isset($options)) @todo: add other wireupload options? There's 12 of them in total
+		#if(isset($options)) @todo: add other wireupload options? There's at least 12 of them in total
 		$uploadMedia->setMaxFiles($options['setMaxFiles']);
-		$uploadMedia->setDestinationPath($dir);
+		$uploadMedia->setDestinationPath($destinationPath);
 		$uploadMedia->setValidExtensions($acceptFileTypes);
 
 		$files = $uploadMedia->execute();
@@ -921,30 +1284,49 @@ class JqueryFileUpload extends WireData implements Module {
 			return $data;
 		}
 
-		// add processed files to options array to pass on
-		$options['files'] = $files;// @note: we do not currently uncompress zip files
+		$unzippedFilesArray = array();
+		// if unzipFiles setting is true and we have zip files, unzip them + add to $files array
+		// @note: we only allow unzip in the backend
+		// format of $files =  array('0'=>file-name.ext)
+		if($decompressZipFiles) {
+			// @note: $files variable changes here!
+			// ..we now set it to store everything that came via this upload including decompressed ZIP archives' contents
+			$files = $this->getFiles();
+		}
 
-		$data = $this->getResponse($options);// response type determined by whether 'showUploaded' is true or false
+
+		// @todo if $this->moveToRoot is false, we need to sort out paths! Files may be in sub-folders
+
+		// add processed files to options array to pass on
+		// @note: adding files to global options
+		$this->options['files'] = $files;
+
+		// response type determined by whether 'showUploaded' is true or false
+		$data = $this->getResponse();
 
 		return $data;
 
 	}
 
 	/**
-	* Delete uploads.
-	*
-	* @access private
-	* @param $options Array of options to guide delete actions.
-	* @param $files Array of files (names) to delete.
-	* @return $data Array with deleted files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
-	*
-	*/
-	private function deleteUploads(Array $options, $files = array()) {
+	 * Delete uploads.
+	 *
+	 * @access private
+	 * @param array $files Files (names) to delete.
+	 * @return array $data Deleted files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
+	 *
+	 */
+	private function deleteUploads($files = array()) {
 
 		//$this->wire('session')->CSRF->validate();// validate against CSRF @todo: can't get this to work currently; error thrown even when token set
 
+		$options = $this->options;
+
 		// @note: we are only deleting web-accessible files (i.e. not those in the private folder)
 		$data = array();
+
+		$successCount = 0;
+		$failCount = 0;
 
 		if(count($files)) {
 
@@ -956,138 +1338,289 @@ class JqueryFileUpload extends WireData implements Module {
 				if(is_file($path)) unlink($path);
 				$thumbPath = $thumbsDir . $f;
 				if(is_file($thumbPath)) unlink($thumbPath);
-				if(is_file($path) || is_file($thumbPath)) $data[$f] = 'Error';// if delete failed
-				else $data[$f] = true;
+				// delete failed
+				if(is_file($path) || is_file($thumbPath)) {
+					$failCount++;
+					$data[$f] = 'Error';
+				}
+				// delete succeeded
+				else {
+					$successCount++;
+					$data[$f] = true;
+				}
 			}
-		
-		}
 
-		else $data['message'] = $this->_('error');// we didn't get files
+
+		}
+		// we didn't get files
+		else $data['message'] = $this->_('error');
+
+		$data['count_total'] = count($files);
+		$data['count_success'] = $successCount;
+		$data['count_fail'] = $failCount;
 
 		return $data;
-		
+
 	}
 
 	/**
-	* Validate files and send back JSON response back to jQuery File Upload after successfully saving uploaded files.
-	*
-	* Full response including file URLs only sent if showUploaded is true.
-	*
-	* @access private
-	* @param $options Array of options to guide response action.
-	* @return $responses Array with processed files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
-	*
-	*/
-	private function getResponse(Array $options) {
+	 * Get files if upload contained ZIP archives.
+	 *
+	 * ZIP archives will be decompressed.
+	 * Only used if unzipping is set to true.
+	 *
+	 * @access public
+	 * @return array The names of the files that were in the decompressed ZIP archive(s).
+	 *
+	 */
+	public function getFiles() {
+		$files = $this->recursiveProcessUploads();
+        return array_keys($this->uploads);
+	}
+
+	/**
+     * Recursively process uploads that contain ZIP archives.
+	 *
+     * ZIP archives recursively decompressed.
+     * We also move all files in sub-directories to the root directory.
+     * We recursively delete empty sub-directories.
+     * @note: we start at CHILD_FIRST in order to remove sub-directories without errors.
+     *
+	 * @access private
+     * @return void
+	 *
+     */
+	private function recursiveProcessUploads() {
+
+		$dir = $this->dir;
+		$moveToRoot = $this->options['moveToRoot'];
+		$thumbsDir = $this->options['thumbsDir'];
+
+		// recursively iterate our path, skipping  system folders
+		$directory = new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS);
+		// in this loop, we go deeper into other folders - recursively and start with the CHILD item first, then its parent, etc
+		// in this way, we can remove empty directories as we go along
+		//foreach (new \RecursiveIteratorIterator($directory, \RecursiveIteratorIterator::SELF_FIRST) as $path ) {
+		foreach (new \RecursiveIteratorIterator($directory, \RecursiveIteratorIterator::CHILD_FIRST) as $path ) {
+
+			/*
+				NOTES:
+				- getPath()
+					* Gets the path without filename
+					* http://uk3.php.net/manual/en/splfileinfo.getpath.php
+
+				- basename()
+					* Returns trailing name component of path
+					* http://uk3.php.net/manual/en/function.basename.php
+					* We use this to trim the getPath() value leaving only the final segment
+					* e.g. abc/def/ghi will return 'ghi'
+
+				- getBasename()
+					* Gets the base name of the file
+					* http://uk3.php.net/manual/en/splfileinfo.getbasename.php
+					* e.g. Album 5 photo 3.txt or Album 1 Sub-album 6 {sub-album}
+					*
+					*
+				$path->getFilename();
+				$path->getPathname()
+				$path->getExtension()
+
+			*/
+
+			set_time_limit(150);// try to avoid timing out
+
+			// skip and remove folders (directories) @note: since we started with CHILD_FIRST, these should be empty
+			if(!$path->isFile()) {
+				// only remove if we won't be moving all files to root dir (otherwise directories won't be empty!)
+				if($moveToRoot && basename($path->getFilename()) != basename($thumbsDir)) $this->wire('files')->rmdir($path);
+				continue;
+			}
+
+			// skip image files in 'thumbnails' folder (for jfu uploaded files)
+			if(basename($path->getPath()) == basename($thumbsDir)) continue;
+
+			// if we got zip files, decompress them
+			if($path->getExtension() == 'zip') {
+				$unzipDir = $moveToRoot ? $dir : $path->getPath();
+				$this->processArchives($path->getRealPath(),$unzipDir);
+				$this->recursiveProcessUploads();
+			}
+			// if file is not in UPLOADS root directory, we move it there if requested so
+			elseif($moveToRoot && basename($path->getPath()) != basename($dir)) {
+				rename($path->getRealPath(), "$dir" . $path->getFilename());
+			}
+			if($path->getExtension() != 'zip')  $this->uploads[$path->getFilename()] = $path->getPathname();
+
+		}// end RecursiveIteratorIterator foreach
+
+	}
+
+	/**
+	 * We decompress ZIP archives recursively.
+	 *
+	 * @access private
+	 * @param string $zipFile Path to the ZIP archive.
+	 * @param string $dir Path to the destination folder to decompress ZIP archive into.
+	 * @return void
+	 *
+	 */
+	private function processArchives ($zipFile, $dir) {
+		$results = $this->wire('files')->unzip($zipFile, $dir);
+		// delete the zip file
+		unlink($zipFile);
+		foreach($results as $key => $zfile) {
+			if(!is_file($dir ."/". $zfile)) continue;
+
+			### check for nested archives ###
+	        // we check for '.zip' extension @note: backward search
+            $archivesArray = array_filter($results, function($str) {
+                return (strpos($str, '.zip', -4) !== false);
+			});
+
+			if(count($archivesArray)) {
+                foreach($archivesArray as $archiveFile) {
+					// call this function again to unzip current archive
+					if(is_file($dir . $archiveFile)) $this->processArchives($dir . $archiveFile, $dir);
+				}
+			}
+        }
+
+	}
+
+	/**
+	 * Validate files and send back JSON response back to jQuery File Upload after successfully saving uploaded files.
+	 *
+	 * Full response including file URLs only sent if showUploaded is true.
+	 *
+	 * @access private
+	 * @return $responses Array with processed files' information to later JSON-encode in $this->processJFUAjax() and send back to jquery file upload plugin.
+	 *
+	 */
+	private function getResponse() {
+
+		$options = $this->options;
 
 		$dir = $options['privateUploadsDir'];
 		$files = $options['files'];// array
 		$showUploaded = (int) $options['showUploaded'];
-		
+		$uploadsURL = '';
+		$thumbsURL = '';
+
 		$responses = array();
+		$successCount = 0;
+		$failCount = 0;
 
 		if($showUploaded === 1) {
-				$dir = $options['uploadsDir'];// web-accessible directory
-				$uploadsURL = $options['uploadsURL'];// ditto
-				$thumbsURL = $options['thumbsURL'];// ditto
-		}		
-			
+			$dir = $options['uploadsDir'];// web-accessible directory
+			$uploadsURL = $options['uploadsURL'];// ditto
+			$thumbsURL = $options['thumbsURL'];// ditto
+		}
+
 		foreach ($files as $f) {
-				$path = $dir . '/' . $f;
-				
-				// this will check for mime types and confirm authenticity of image types
-				$valid = $this->validateFile($path, $options);// returns an array
+			$path = $dir . $f;
 
-				$message = array();
-				$message['name'] = $f;
-				$message['size'] = filesize($path);
-				if($valid['valid'] == true)	{
-					// only if showing uploads
-					if($showUploaded === 1) {
-						$message['url'] = $uploadsURL  . $f;
-						// thumbnails only for images
-						if($valid['isImage'] == true && $options['createThumb'] == true) $message['thumbnailUrl'] = $thumbsURL . $f;
-					}					
-				}
-				else {
-						$message['error'] = $valid['error'];
-						unlink($path);// delete invalid file
-				}
+			// this will check for mime types and confirm authenticity of image types
+			$valid = $this->validateFile($path);// returns an array
 
-				$responses['files'][] = $message;
-				
-		}		
+			$message = array();
+			$message['name'] = $f;
+			$message['size'] = filesize($path);
+			if($valid['valid'] == true)	{
+				// only if showing uploads
+				if($showUploaded === 1) {
+					$message['url'] = $uploadsURL  . $f;
+					// thumbnails only for images
+					if($valid['isImage'] == true && $options['createThumb'] == true) $message['thumbnailUrl'] = $thumbsURL . $f;
+				}
+				$successCount++;
+			}
+			else {
+				$message['error'] = $valid['error'];
+				$failCount++;
+				unlink($path);// delete invalid file
+			}
+
+			$responses['files'][] = $message;
+			$responses['count_total'] = count($files);
+			$responses['count_success'] = $successCount;
+			$responses['count_fail'] = $failCount;
+
+		}
 
 		return $responses;
 
 	}
 
+	/* ######################### - VALIDATORS - ######################### */
+
 	/**
-	* Validate uploaded files.
-	*
-	* Validation for images vs. non-image files done separately in two separate methods.
-	* Here we only determine the file type and send off for validation.
-	*
-	* @access public
-	* @param $path String full path to the file to validate.
-	* @param $options Array of options to guide validation.
-	* @return $valid Array Responses about a file's validity.
-	*
-	*/
-	public function validateFile($path, Array $options) {		
+	 * Validate uploaded files.
+	 *
+	 * Validation for images vs. non-image files done separately in two separate methods.
+	 * Here we only determine the file type and send off for validation.
+	 *
+	 * @access public
+	 * @param string $path Full path to the file to validate.
+	 * @return array $valid Responses about a file's validity.
+	 *
+	 */
+	public function validateFile($path, $options=null) {
+
+		if(!is_null($options) && is_array($options)) $this->options = $options;
+		$options = $this->options;
 
 		$valid = array();
 		$commonImageExts = $options['commonImageExts'];
 
-		if(!$path) {			
+		if(!$path) {
 			// just in case method is being used externally
 			$valid['valid'] = 'false';
-			$valid['error'] = $this->_('A path needs to be specified');
-		}		
+			$valid['error'] = $this->_('A path needs to be specified.');
+		}
 
 		elseif(is_file($path)) {
-			$file = new SplFileInfo($path);
-			if(in_array($file->getExtension(), $commonImageExts)) $valid = $this->isFileImageValid($path, $options, $file->getExtension());
-			else $valid = $this->isFileOtherValid($path, $options);
+			$file = new \SplFileInfo($path);
+			if(in_array($file->getExtension(), $commonImageExts)) $valid = $this->isFileImageValid($path, $file->getExtension());
+			else $valid = $this->isFileOtherValid($path);
 		}
 
 		else {
 			$valid['valid'] = false;
 			$valid['error'] = $this->_('File not found!');
-		}		
+		}
 
 		return $valid;
 
 	}
 
 	/**
-	* Validate uploaded non-image files.
-	*
-	* We check for mime type.
-	*
-	* @access private
-	* @param $otherFile The full path to the non-image file to validate.
-	* @param $options Array of options to guide validation action.
-	* @return $valid Array Responses about a file's validity.
-	*
-	*/
-	private function isFileOtherValid($otherFile, Array $options) {
+	 * Validate uploaded non-image files.`
+	 *
+	 * We check for mime type.
+	 *
+	 * @access private
+	 * @param string $otherFile The full path to the non-image file to validate.
+	 * @return array $valid Responses about a file's validity.
+	 *
+	 */
+	private function isFileOtherValid($otherFile) {
 
+		$options = $this->options;
 		$valid = array();
 		$valid['isImage'] = false;
 
 		$allowedNonImageMimeTypes = $options['allowedNonImageMimeTypes'];
-		
+
 		/*
 			@note:
-				- PHP 5.3.0 and later have Fileinfo built in, but on Windows it must be manually enabled in php.ini. 
+				- PHP 5.3.0 and later have Fileinfo built in, but on Windows it must be manually enabled in php.ini.
 				- In earlier versions, PHP had mime_content_type but it is now deprecated.
 				- If none of these two available, for security, we assume invalid file and delete it.
 		*/
 
 		if(function_exists('mime_content_type')) $mime = mime_content_type($otherFile);
 		elseif(class_exists('finfo')){
-			$finfo = new finfo;
+			$finfo = new \finfo;
 			$mime = $finfo->file($otherFile, FILEINFO_MIME);
 			$mime = substr($mime , 0, strpos($mime, ';'));// remove the ; charset=binary appended by this function after the mime_type
 		}
@@ -1097,8 +1630,8 @@ class JqueryFileUpload extends WireData implements Module {
 		if(in_array($mime, $allowedNonImageMimeTypes)) $valid['valid'] = true;
 		else {
 			$valid['valid'] = false;
-			$valid['error'] = $this->_('Filetype not allowed');
-			// @note: we delete the invalid file in getResponse()	
+			$valid['error'] = $this->_('Filetype not allowed.');
+			// @note: we delete the invalid file in getResponse()
 		}
 
 		return $valid;
@@ -1106,19 +1639,20 @@ class JqueryFileUpload extends WireData implements Module {
 	}
 
 	/**
-	* Validate uploaded image files.
-	*
-	* Assesses whether uploaded image files are actually images.
-	* We do this by looking at their FILE TYPE CONSTANT.
-	*
-	* @access private
-	* @param $imageFile The full path to the image file to validate.
-	* @param $options Array of options to guide validation action.
-	* @param $imageFileExt String The image file's extension.
-	* @return $valid Array Responses about an image file's validity.
-	*
-	*/
-	private function isFileImageValid($imageFile, Array $options, $imageFileExt) {
+	 * Validate uploaded image files.
+	 *
+	 * Assesses whether uploaded image files are actually images.
+	 * We do this by looking at their FILE TYPE CONSTANT.
+	 *
+	 * @access private
+	 * @param string $imageFile The full path to the image file to validate.
+	 * @param string $imageFileExt The image file's extension.
+	 * @return array $valid Responses about an image file's validity.
+	 *
+	 */
+	private function isFileImageValid($imageFile, $imageFileExt) {
+
+		$options = $this->options;
 
 		$valid = array();
 		$valid['isImage'] = true;
@@ -1128,12 +1662,12 @@ class JqueryFileUpload extends WireData implements Module {
 		$isValidImage = false;
 
 		// exif_imagetype is faster, so we attempt to use it first
-		if (function_exists('exif_imagetype')) 	{			
+		if (function_exists('exif_imagetype')) 	{
 				$imageTypeConstants = $options['imageTypeConstants'];
 				$imageFileTypeConstant = isset($imageTypeConstants[$imageFileExt]) ? $imageTypeConstants[$imageFileExt] : '';
 				if (exif_imagetype($imageFile) == $imageFileTypeConstant) $isValidImage = true;
 		}
-		
+
 		else {
 				$mime = getimagesize($imageFile);
 				$mime = $mime['mime'];
@@ -1144,33 +1678,37 @@ class JqueryFileUpload extends WireData implements Module {
 		if($isValidImage) {
 			$valid['valid'] = true;
 			// if creating thumbnail
-			// @note: let user decide if they WANT a thumbnail (default is false)			
-			if($options['createThumb'] == true) $this->createThumbnails($imageFile, $options);// if creating image thumbnail
+			// @note: let user decide if they WANT a thumbnail (default is false)
+			if($options['createThumb'] == true) $this->createThumbnails($imageFile);// if creating image thumbnail
 		}
 
 		else {
 			$valid['valid'] = false;
 			$valid['error'] = $this->_('Filetype not allowed');
-			// @note: we delete the invalid file in getResponse()		
+			// @note: we delete the invalid file in getResponse()
 		}
-				
+
 		return $valid;
 
 	}
 
+
+	/* ######################### - OTHER UTILITIES - ######################### */
+
 	/**
-	* Create thumbnails of uploaded images.
-	*
-	* Only used if showUploaded is true.
-	* We use ProcessWire's ImageSizer class to create the thumbnail.
-	* We create a copy of the image first to avoid resizing the original.
-	*
-	* @access private
-	* @param $imageFile String The full path to the image file to resize.
-	* @param $options Array of options to guide thumbnail creation.
-	*
-	*/
-	private function createThumbnails($imageFile, Array $options) {
+	 * Create thumbnails of uploaded images.
+	 *
+	 * Only used if showUploaded is true.
+	 * We use ProcessWire's ImageSizer class to create the thumbnail.
+	 * We create a copy of the image first to avoid resizing the original.
+	 *
+	 * @access private
+	 * @param string $imageFile The full path to the image file to resize.
+	 *
+	 */
+	private function createThumbnails($imageFile) {
+
+		$options = $this->options;
 
 		// @note: being here doesn't mean we have allowed uploads to be viewable;
 		// in some contexts, e.g. in modules/backend, we might want to create thumbnails anyway
@@ -1178,36 +1716,56 @@ class JqueryFileUpload extends WireData implements Module {
 		$width = $options['thumbsWidth'];
 		$height = $options['thumbsHeight'];
 
-		$file = new SplFileInfo($imageFile);
+		$file = new \SplFileInfo($imageFile);
 		$fileName = $file->getBasename();
 
 		if((int) $options['showUploaded'] === 1) $thumbsDir = $options['thumbsDir'];
 		else $thumbsDir = $options['thumbsPrivateDir'];
 
-		if(!is_dir($thumbsDir)) wireMkdir($thumbsDir, true);
+		$files = $this->wire('files');
+		if(!is_dir($thumbsDir)) $files->mkdir($thumbsDir, true);
 		// create a copy of the file to resize since ImageSizer will not
-		if(is_dir($thumbsDir)) copy($imageFile, $thumbsDir . $fileName);
+		if(is_dir($thumbsDir)) $files->copy($imageFile, $thumbsDir . $fileName);
 		else return;// couldn't make directory
 
 		// @note: we skip resizing SVGs. imageSizer, understandably, throws an error
 		if('svg'!=$file->getExtension()) {
-			$is = new ImageSizer($thumbsDir . '/' . $fileName);
-			$is->resize($width,$height);
+			set_time_limit(360);// try to avoid timing out
+			$is = new ImageSizer($thumbsDir . $fileName);
+			$is->resize($width, $height);// @note: need only height for PW3, hence $width=0
 		}
 
 	}
 
+	/**
+	 *  Return human readable filesize.
+	 *
+	 * @credits: rommel at rommelsantor dot com http://php.net/manual/en/function.filesize.php#106569
+	 *
+	 * @access private
+	 * @param string $bytes The filesize in bytes.
+	 * @param integer $decimals The number of decimal places to work with.
+	 * @return string $filesize The human readable filesize.
+	 *
+	 */
+	private function humanReadableFilesize($bytes, $decimals = 2) {
+		$sz = 'BKMGTP';
+		$factor = floor((strlen($bytes) - 1) / 3);
+		$filesize = sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) .' '. @$sz[$factor];
+		$filesize = str_replace('BB', 'B', $filesize . 'B');// @kongondo
+		return $filesize;
+	}
+
+	/* ######################### - INSTALL/UNINSTALL ROUTINES - ######################### */
 
 	/**
 	 * 	Called only when the module is installed.
 	 *
-	 *	@access public
+	 * @access public
 	 *
-	 */	
+	 */
 	public function ___install() {
-
 		// Don't need to add anything here...
-		
 	}
 
 	/**
@@ -1219,9 +1777,7 @@ class JqueryFileUpload extends WireData implements Module {
 	 *
 	 */
 	 public function ___uninstall() {
-		
 		// Don't need to add anything here...
-			
 	}
 
 

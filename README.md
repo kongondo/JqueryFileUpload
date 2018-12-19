@@ -58,6 +58,7 @@ JqueryFileUpload implements all the [options](https://github.com/blueimp/jQuery-
 *	**noVideoPreview**: Same as above; not to output script that enables preview of video files pre-uploading them.
 *	**useCustomScript**: Same as above; not to output the module's main Javascript file *JqueryFileUpload.js* to instead use your own.
 *	**useCustomStyle**: Same as above; not to output the module's main CSS file *JqueryFileUpload.css* to instead use your own.
+*	**unzipFiles**: Whether to decompress zip files after upload. contents will then be listable if listing. The zip file is deleted after decompression. *Please note unzip is only allowed in the backend*.
 
 ## How to Install
 
@@ -195,6 +196,10 @@ Uninstall like any other third-party ProcessWire module.
 
 ## Support forum
 [Support](https://processwire.com/talk/topic/12050-module-jquery-file-upload/)
+
+## Changelog
+#### Version 0.0.7
+1. Added option to unzip uploaded ZIP archives (works only if used in backend).
 
 ## Changelog
 #### Version 0.0.6
