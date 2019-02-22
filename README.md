@@ -3,7 +3,7 @@
 This module is a ProcessWire implementation of the awesome [Blueimp jQuery File Upload](https://blueimp.github.io/jQuery-File-Upload/) plugin.  Server-side, the module provides a custom uploads handler enabling you to perform various tasks with ease. The module is an interface of the feature-rich Ajax File Uploads widget provided by the jQuery File Upload plugin.
 
 
-The module is completely customisable and can be used both in the front- and backend (e.g. in third-party module). 
+The module is completely customisable and can be used both in the front- and backend (e.g. in third-party module).
 
 ## Security
 
@@ -72,11 +72,11 @@ Developers will mainly directly interact with the following methods:
 
 ### render($options)
 
-This method renders the markup of the full uploads widget. The method accepts one argument, an array of *$options*. You can by-pass this method and instead use your own custom form. It will take relevant custom options listed above including *uploadsDeletable* (controls output of file widgets delete buttons) as well as some native jQuery File Upload options such as [paramName](https://github.com/blueimp/jQuery-File-Upload/wiki/Options#paramname). Individual bits of the form can also be output separately using various internal methods (for instance *renderAddUploadsButton()*). Have a look at the code for more details. **Note that** in the backend, *render()* does not output form tags. Instead, it expects the developer to wrap its markup within a ProcessWire generated form. The form must be given the ID *fileupload* (unless you will be implementing your own script to talk to the jQuery File Upload plugin; see below). 
+This method renders the markup of the full uploads widget. The method accepts one argument, an array of *$options*. You can by-pass this method and instead use your own custom form. It will take relevant custom options listed above including *uploadsDeletable* (controls output of file widgets delete buttons) as well as some native jQuery File Upload options such as [paramName](https://github.com/blueimp/jQuery-File-Upload/wiki/Options#paramname). Individual bits of the form can also be output separately using various internal methods (for instance *renderAddUploadsButton()*). Have a look at the code for more details. **Note that** in the backend, *render()* does not output form tags. Instead, it expects the developer to wrap its markup within a ProcessWire generated form. The form must be given the ID *fileupload* (unless you will be implementing your own script to talk to the jQuery File Upload plugin; see below).
 
 ### processJFUAjax($options)
 
-This is a very important method that controls client-generated Ajax requests to your server. By default, its default array of *$options* are very restrictive. **Think [carefully](https://www.owasp.org/index.php/Unrestricted_File_Upload) before** overriding any of them. For instance, overriding the uploads directory, showing a list of uploaded files or allowing deletion of uploads. It takes one array argument, $options. If you prefer, you can use your own uploads handler instead of using this method. 
+This is a very important method that controls client-generated Ajax requests to your server. By default, its default array of *$options* are very restrictive. **Think [carefully](https://www.owasp.org/index.php/Unrestricted_File_Upload) before** overriding any of them. For instance, overriding the uploads directory, showing a list of uploaded files or allowing deletion of uploads. It takes one array argument, $options. If you prefer, you can use your own uploads handler instead of using this method.
 
 ### configsJFU($options)
 
@@ -92,7 +92,7 @@ This method is equivalent to *renderJFUScripts()* except that it uses ProcessWir
 
 ### renderJFUStyles($options)
 
-This method's output should be echoed in the <head> in your HTML. It outputs CSS <link></link> tags. It takes one argument, *$options*. To disable outputting the image gallery CSS, pass it the option as follows: *renderJFUStyles(array('noGallery'))*. 
+This method's output should be echoed in the <head> in your HTML. It outputs CSS <link></link> tags. It takes one argument, *$options*. To disable outputting the image gallery CSS, pass it the option as follows: *renderJFUStyles(array('noGallery'))*.
 
 ### configJFUStyles($options)
 
@@ -106,19 +106,19 @@ This method is equivalent to *renderJFUStyles()* except that it uses ProcessWire
 $jfu = $modules->get('JqueryFileUpload');
 
 // if we got an ajax request deal with it before page is rendered
-if ($config->ajax) {		
+if ($config->ajax) {
 	// server-side options to send to the ajax handler
 	$ajaxOptions = array(
 		'uploadsDeletable' => 1,// disable attempts to delete upload (this is already the default but included here just as an example)
 		'showUploaded' => 1,// don't send back response listing uploads
 		//'disableUploads' => true// disable uploads @note: matches similar setting in render()
 	);
-	
+
 	// action the ajax request
 	echo $jfu->processJFUAjax($ajaxOptions);
 }
 
-// example options to send to jQuery File Upload plugin. 
+// example options to send to jQuery File Upload plugin.
 // The plugin has its own set of defaults. Here we override some of them
 $jfuOptions = array(
 	'imageMaxWidth' => 1280,// limit image width (will be resized)
@@ -135,7 +135,7 @@ $jfuOptions = array(
 // outside the ProcessWire Admin the method configsJSU() returns a JSON string
 // Otherwise, it populates the $config->js() array
 $jfuConfig = $jfu->configsJFU($jfuOptions);
-		
+
 // options to pass to the render() method
 $options = array(
 	// useful for allowing uploads to one group of users and not the other (e.g. registered versus non-registered)
@@ -150,18 +150,18 @@ $options = array(
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8">
 	<title><?php echo $page->title; ?></title>
-	
+
 	<!-- echo this modules CSS styles. This is optional; you are free to use your own CSS styles -->
 	<?php echo $jfu->renderJFUStyles(); ?>
-	
+
 	<!-- Include the usual suspects. We need both for the module to work -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
-	
-	<!-- Output the plugins Javascript configurations before the page is fully rendered. 
+
+	<!-- Output the plugins Javascript configurations before the page is fully rendered.
 		@note: These are the configs we prepared earlier in the PHP block -->
 	<script type="text/javascript">var config = <?php echo $jfuConfig; ?>;</script>
-	
+
 	<!-- Output the scripts needed to make the widget work. We could also output these just before we close </body>
 		In the first commented out example, we tell the method renderJFUScripts() not to ouput certain scripts
 		since we will not be using them, e.g. we will not be showing previews of videos queued for uploading
@@ -176,7 +176,7 @@ $options = array(
 <body>
 <div id="wrapper">
 	<h1><?php echo $page->title; ?></h1>
-	<?php			
+	<?php
 		// echo the file widget's markup using the render() method and passing to it any options we set earlier
 		echo $jfu->render($options);
 		// can also render without $options if happy with the defaults
