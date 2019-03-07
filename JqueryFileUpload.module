@@ -154,8 +154,16 @@ class JqueryFileUpload extends WireData implements Module {
 			// whether to move unzipped files in sub-folders to the main root uploads directory + delete the empty sub-folders
 			// @note: currently, mainly for internal use @TOD0!!
 			'moveToRoot' => true,
+			// for rendering string of allowed file type extensions for use in $this->renderAllowedFileExtensions()
+			// @note: this is probably verbose since we can always build from "acceptFileTypes"
+			'renderAllowedFileExtensions' => ''
 
 		);
+
+		// if option "renderAllowedFileExtensions" is empty, we fall back to "acceptFileTypes"
+		if(!$this->defaultOptions['renderAllowedFileExtensions']) {
+			$this->defaultOptions['renderAllowedFileExtensions'] = str_replace(" ",", ",$this->defaultOptions['acceptFileTypes']);
+		}
 
 		$this->backendMode = $this->wire('page')->template == 'admin' ? true : false;
 		$this->extraCSSClass = $this->adminTheme == 'AdminThemeReno' ? 'Reno' : '';
@@ -286,7 +294,7 @@ class JqueryFileUpload extends WireData implements Module {
 		$defaultJFUOptions = array(
 			"url" => "./",// by default we post to same page that sent the request
 			'acceptFileTypes' => 'gif jpeg jpg png mp3 pdf mp4',// @todo: why not just get from $this->defaultOptions()?
-			'showUploaded' => false,// by default, don't show files that have already been uploaded
+			'showUploaded' => 0,// by default, don't show files that have already been uploaded
 			'filesContainer' =>  '#files',
 			'dropZone' =>  '.jfu_dropzone',
 			'uploadTemplateId' =>  'null',
@@ -307,7 +315,7 @@ class JqueryFileUpload extends WireData implements Module {
                 'maxFileSize' => $this->_("File is too large"),
                 'minFileSize' => $this->_("File is too small")
 			),
-			// own/custom config
+			// own/custom config @todo: still using?
 			'useCustomJFUActionMarkup' => false,
 			// the target HTML element we'll be calling the fileupload method on (@note: we'll use as selector since we need jQuery collection)
 			'targetElement' => '#fileupload',
@@ -477,6 +485,8 @@ class JqueryFileUpload extends WireData implements Module {
 			$disableUploads = $options['disableUploads'];
 
 			$targetElement = $options['targetElement'];
+			// @todo: for our purposes, we currently remove the leading "#". We also assume the targetElement will be an ID!
+			$targetElement = preg_replace('/#/', '', $targetElement, 1);
 
 			// if uploads disabled, we only output the table listing of uploads (if show uploads also enabled)
 			// @note: if no form output with id#fileupload, need this to trigger jquery file upload plugin
@@ -547,7 +557,6 @@ class JqueryFileUpload extends WireData implements Module {
 		$options = $this->options;
 		$allowDelete = (int) $options["uploadsDeletable"];
 
-
 		// check if using custom action markup or using JFU inbuilt
 		$customActionMarkup  = $options['customJFUActionMarkup'];
 
@@ -581,10 +590,10 @@ class JqueryFileUpload extends WireData implements Module {
 		if(!$paramName) $paramName = 'files';
 
 		$out =
-			"<div class='InputfieldImageUpload uk-width-1-2'>" .
+			"<div class='InputfieldImageUpload jfu_choose_files uk-width-1-2'>" .
 				//	@todo: get the css for this from Fieldtypeimage and use instead of depending on InputMask?
 				"<div class='InputMask ui-button ui-state-default'>" .
-					"<span class='ui-button-text'><i class='fa fa-fw fa-folder-open-o'></i>" .
+					"<span class='ui-button-text jfu_choose_files'><i class='fa fa-fw fa-folder-open-o'></i>" .
 						$this->_("Choose Files") .
 					"</span>" .
 					"\n\t\t\t\t<input type='file' name='{$paramName}[]'  multiple='multiple'>" .
@@ -615,7 +624,7 @@ class JqueryFileUpload extends WireData implements Module {
 		if($this->uploadActionsRender == 1) $startTitle = '';
 		$out =
 			"<span class='jfu_start start uk-margin-small-right'>" .
-				"<a id='jfu_start_upload' class='ui-button ui-state-default' href='#' title='{$startTitle}'{$actionType}>{$startText}</a>".
+				"<a class='ui-button ui-state-default jfu_action' href='#' title='{$startTitle}'{$actionType}>{$startText}</a>".
 			"</span>";
 
 		return $out;
@@ -642,7 +651,7 @@ class JqueryFileUpload extends WireData implements Module {
 		if($this->uploadActionsRender == 1) $cancelTitle = '';
 		$out =
 			"<span class='jfu_cancel cancel uk-margin-small-right'>" .
-				"<a id='jfu_cancel_upload' class='ui-button ui-state-default ui-priority-secondary' href='#' title='{$cancelTitle}'{$actionType}>{$cancelText}</a>".
+				"<a class='jfu_cancel_upload jfu_action ui-button ui-state-default ui-priority-secondary' href='#' title='{$cancelTitle}'{$actionType}>{$cancelText}</a>".
 			"</span>";
 
 		return $out;
@@ -679,12 +688,12 @@ class JqueryFileUpload extends WireData implements Module {
 		if(!$customActionMarkup) {
 			$out .=
 			"<span class='jfu_delete delete uk-margin-small-right'>" .
-				"<a id='jfu_delete_upload' href='#'{$deleteTitleMarkup}{$actionType}>{$deleteText}</a>".
+				"<a class='jfu_delete_upload jfu_action' href='#'{$deleteTitleMarkup}{$actionType}>{$deleteText}</a>".
 			"</span>";
 		}
 
 		// select uploads checkboxes
-		$out .= "<input type='checkbox' class='uploaded_file toggle uk-checkbox uk-form-controls-text'>";
+		$out .= "<input type='checkbox' class='uploaded_file jfu_check toggle uk-checkbox uk-form-controls-text'>";
 
 		return $out;
 
@@ -738,6 +747,21 @@ class JqueryFileUpload extends WireData implements Module {
 		$label = $this->_('Uploaded Files');
 		$notes = $this->_('Files to action.');
 
+
+		// deleting uploads allowed. We need the checkbox
+		if($allowDelete) {
+			$selectColumn =
+				"<th class='uk-width-medium jfu_check_action'>" .
+					"<input type='checkbox' class='toggle_all jfu_check uk-checkbox uk-form-controls-text' title='Select All'>".
+				"</th>";
+		}
+
+		// deleting not allowed, no checkbox needed
+		else {
+			$selectColumn =
+				"<th class='uk-width-medium jfu_check_action'>" . $this->_('Action') . "</th>";
+		}
+
 		$out .=
 			"\n\t<div class='jfu-uploaded-files-list uk-overflow-auto uk-width-1-1'>".
 				"<h3 class='InputfieldHeader uk-form-label'>{$label}</h3>" .
@@ -745,12 +769,10 @@ class JqueryFileUpload extends WireData implements Module {
 				"<table id='jfu-files-list' role='presentation' class='files_list uk-table uk-table-divider uk-table-hover uk-table-justify uk-table uk-table-middle uk-table-responsive' data-deletable='{$allowDelete}' data-show-gallery='{$showGallery}'>".
 					"<thead>" .
 						"<tr>" .
-							"<th class='uk-width-1-4'>" . $this->_('Preview') . "</th>" .
-							"<th class='uk-table-expand'>" . $this->_('Name') . "</th>" .
-							"<th class='uk-width-small'>" . $this->_('Size') . "</th>" .
-							"<th class='uk-width-medium'>" .
-								"<input type='checkbox' class='toggle_all uk-checkbox uk-form-controls-text' title='Select All'>".
-							"</th>" .
+							"<th class='uk-width-1-4 jfu_file_preview'>" . $this->_('Preview') . "</th>" .
+							"<th class='uk-table-expand jfu_file_name'>" . $this->_('Name') . "</th>" .
+							"<th class='uk-width-small jfu_file_size'>" . $this->_('Size') . "</th>" .
+							$selectColumn .
 						"</tr>" .
 					"</thead>" .
 					"\n\t\t<tbody id='" . $filesContainer . "'></tbody>\n".
@@ -977,7 +999,6 @@ class JqueryFileUpload extends WireData implements Module {
 
 		$out =
 			"\n\t\t<div id='jfu_markup_templates' class='jfu_hide'>" .
-
 					# start icon
 					"\n\t\t\t<div class='jfu_uploads_start jfu_single_action' title='{$start}'>" .
 						"\n\t\t\t\t".$this->renderStartUploads().
@@ -1231,16 +1252,11 @@ class JqueryFileUpload extends WireData implements Module {
 
 		$this->wire('session')->CSRF->validate();// validate against CSRF
 
-
 		$options = $this->options;
 		$data = array();
 
 		$uploadedFileNamesArray = $_FILES['files']['name'];
-
-
 		$decompressZipFiles = $options['unzipFiles'] && $this->backendMode && count(preg_grep ('/.zip$/i', $uploadedFileNamesArray)) ? true : false;
-
-
 		$dir = $options['privateUploadsDir'];// non-web-accessible directory
 
 		// if showing uploads, we need to use the web-accessible directory
