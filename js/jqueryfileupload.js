@@ -42,7 +42,7 @@ function JqueryFileUpload($, $anywhereJfuFileUpload = {}) {
 
 	/*** check if in AnywhereUpload mode ***/
 	// set up properties needed for anywhere upload
-	anywhereFileUpload = false;
+	anywhereFileUpload = false;// @todo: set also server-side? Not really an issue since we go through same security checks server-side
 	// if $anywhereJfuFileUpload object is NOT empty, we are IN anywhereFileUpload mode
 	if (!jQuery.isEmptyObject($anywhereJfuFileUpload)) {
 
@@ -126,7 +126,6 @@ function JqueryFileUpload($, $anywhereJfuFileUpload = {}) {
 
 		// initialise widget, passing it options
 		fileUpload.fileupload(options);
-		var t = 1;
         // add additional harcoded options
         fileUpload.fileupload({
             // @todo: do this check?
@@ -139,7 +138,7 @@ function JqueryFileUpload($, $anywhereJfuFileUpload = {}) {
 			},
 		// @note: we are not using downloadTemplate property! but implementing this instead
 		}).bind('fileuploaddone', function (e, data) {
-				if (data.result && $.isArray(data.result.files)) {
+			if (data.result && $.isArray(data.result.files)) {
 					var files = {};
 					files['files'] = data.result.files;
 					files['formatFileSize'] = formatFileSize
@@ -282,6 +281,7 @@ function JqueryFileUpload($, $anywhereJfuFileUpload = {}) {
 	 */
 	function renderFileDeleteIcon() {
 		var $icon = $('div#jfu_markup_templates').find('div.jfu_uploads_delete').clone();
+		//$icon.find('input.uploaded_file').removeClass('jfu_hide');
 		return $icon;
 	}
 
@@ -363,6 +363,9 @@ function JqueryFileUpload($, $anywhereJfuFileUpload = {}) {
 				type: 'POST',
 				data: {'jfu_files':$files, 'jfu_delete':'delete'},
 				dataType: 'json',
+			}).done(function ($result) {
+				// uncheck the select all input in the table of uploaded th
+				$('div.jfu_files_container input.toggle_all').prop('checked', false);
 			}).fail(function() {  alert('Error'); })
 		});
 	}
@@ -441,7 +444,6 @@ function JqueryFileUpload($, $anywhereJfuFileUpload = {}) {
 				- solution for client-side image resizing not working in basic plugin:
 				https://stackoverflow.com/questions/21675593/cant-get-image-resizing-to-work-with-jquery-file-upload
 				*/
-
 				$.blueimp.fileupload.prototype.options.add.call(this, e, $data);
 
 				// cancel uploads
