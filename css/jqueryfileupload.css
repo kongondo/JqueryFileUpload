@@ -11,7 +11,7 @@
 
 
 /** generic **/
-.jfu_hide{display: none;}
+.jfu_hide{display: none!important;}
 a.jfu_upload_anywhere_cancel_all {float: right}
 
 /** form **/
@@ -28,36 +28,41 @@ div.drop-files-container {
 	border: none; outline: 1px solid #d9e1ea;
 	padding: 20px;
 	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	margin: 0;
+	list-style: none;
 }
 div.jfu_dropzone {background: #FAFBFC;}
 div.jfu_dropzone:hover {background: rgba(230, 232, 235, 0.5);}
-div.jfu-drop-zone-text {padding-right:20px}
+div.jfu-drop-zone-text {padding-right:20px; right: 0;}
 
-.InputMask {
-    position: relative;
-    overflow: hidden;
-    line-height: 1 !important;
-    cursor: pointer;
-    font-size: 14px;
-    border: none;
+div.InputMask {
+	line-height: 1 !important;
+	cursor: pointer;
+	font-size: 14px;
+	border: none;
+	position: relative;
+	overflow: hidden;
 }
-
 .InputfieldImageValidExtensions {margin-left: 1em;}
 .InputfieldImageUpload .AjaxUploadDropHere {
-    position: absolute;
-    bottom: 15%;
-    right: 0;
-    opacity: 0.75;
+	position: absolute;
+	bottom: 15%;
+	right: 0;
+	opacity: 0.75;
 	cursor: pointer;
 	padding-right: 20px;
 }
 
 div.progress {margin-top: 10px;}
 div.jfu_single_action {position: relative;}
-div.jfu_drop_zone_actions_wrapper,
-div.jfu_drop_zone_files_wrapper {
-	margin-top: 1.5em; margin-bottom: 1.5em;
-}
+div.jfu_drop_zone_actions_wrapper,div.jfu_drop_zone_files_wrapper {margin-top: 1.5em; margin-bottom: 1.5em;}
+div.jfu_choose_files, div.jfu-drop-zone-text {width: 50%; margin-top: 40px;}
+div.extensions {box-sizing: border-box;width: 100%;max-width: 100%;}
+div.jfu-drop-zone-text {top: 50%; transform: translateY(45%);/*@todo?*/ text-align: right!important;}
+/* @note: for backend PW Admin use @todo? */
+div.InputfieldContent div.jfu-drop-zone-text {transform: translateY(-50%);}
 
 div.fu_anywhere_upload_drop_hover {z-index: 500!important;}
 div.jfu_upload_anywhere_widget {
@@ -122,10 +127,39 @@ div.jfu_dropzone.fade {
 	opacity: 1;
 }
 
+div.InputMask.ui-button {
+	white-space: nowrap;
+	margin: 0;
+	border: none;
+	overflow: visible;
+	font: inherit;
+	color: inherit;
+	text-transform: none;
+	display: inline-block;
+	box-sizing: border-box;
+	padding: 0 30px;
+	vertical-align: middle;
+	line-height: 38px;
+	text-align: center;
+	text-decoration: none;
+	text-transform: capitalize;
+	transition: .1s ease-in-out;
+	transition-property: color,background-color,border-color;
+	background: #3eb998;
+	background-color: transparent;
+	border: 1px solid transparent;
+	font-size: 16px;
+	border-radius: 4px;
+	color: #333;
+	border: 1px solid #e5e5e5;
+}
+
+div.InputMask.ui-button:hover {background-color: #3eb998;	color: #fff; border: 1px solid transparent;}
+
 /* container div */
 div.jfu_files_container .text-danger {color: #A94442;}
 div.jfu_files_container p {margin: 0 0 10px;}
-
+p.jfu-uploaded-files-note{color: #8d939e!important; background: #ffd;}
 div.jfu_list {display: inline-block;}
 div.jfu_preview_thumb{width: 15%; height: auto}
 div.jfu_preview_thumb_meta{width: 70%; padding-left: 20px;}
@@ -147,14 +181,6 @@ div.jfu_file_upload_progress_background{
 	font-size: 2em;
 }
 
-div.InputMask {
-    position: relative;
-    overflow: hidden;
-    line-height: 1 !important;
-    cursor: pointer;
-    font-size: 14px;
-    border: none;
-}
 div.progress {background:#fff;}
 
 /** input **/
@@ -172,18 +198,39 @@ div.jfu_files_container span#add_files input[type=file], span.jfu_dropzone_brows
 }
 
 div.jfu_files_container input[type=file] {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
-    filter: alpha(opacity=0);
-    opacity: 0;
-    cursor: inherit;
-    width: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	-ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
+	filter: alpha(opacity=0);
+	opacity: 0;
+	cursor: inherit;
+	width: 100%;
+}
+
+div.jfu_files_container input.jfu_check {
+	font-size: 16px;
+	cursor: pointer;
+	display: inline-block;
+	height: 16px;
+	width: 16px;
+	overflow: hidden;
+	margin-top: -4px;
+	vertical-align: middle;
+	background-repeat: no-repeat;
+	background-position: 50% 50%;
+	border: 1px solid #ccc;
+	transition: .2s ease-in-out;
+	transition-property: background-color,border;
+	box-sizing: border-box;
+	margin: 0;
+	border-radius: 0;
+	font: inherit;
 }
 
 /** button **/
+/* @todo: delete if no longer in use!
 div.jfu_files_container button:focus {outline: 0;}
 div.jfu_files_container div.action-buttons-wrapper-Reno button{padding: 0; height: 2.75em;}
 div.jfu_files_container button.start {background-color: #428BCA;}
@@ -191,7 +238,7 @@ div.jfu_files_container button.start:hover {background-color: #3173AE;}
 div.jfu_files_container button.cancel {background-color: #F0AD4E;}
 div.jfu_files_container button.cancel:hover {background-color: #DF8813;}
 div.jfu_files_container button.delete {background-color: #D9534F;}
-div.jfu_files_container button.delete:hover {background-color: #B62B27;}
+div.jfu_files_container button.delete:hover {background-color: #B62B27;}*/
 
 /** img **/
 td.jfu_file_preview img, td.jfu_file_preview canvas {width: 130px !important; height: auto;}
@@ -226,21 +273,16 @@ div.jfu_dropzone span.jfu_dropzone_browse_files {
 	font-size: 1em !important;
 	border-radius: 3px;
 	transition: all 120ms ease-in;
-	display: inline-block;
-	position: relative;
-	padding: 0.5em;
 	line-height: normal;
 	margin-right: .1em;
 	margin-bottom: 5px;
 	cursor: pointer;
 	vertical-align: middle;
 	text-align: center;
-	overflow: visible;
 	font-family: "Helvetica Neue",Arial,sans-serif;
 	border: none;
 	background-color: #60AB82;
 	padding: 0.505em;
-	position: relative;
 	position: relative;
 	overflow: hidden;
 	display: inline-block;
@@ -256,13 +298,30 @@ div.jfu_upload_anywhere_widget_header span.jfu_upload_anywhere_processing {
 	display: none;
 }
 
-/** list **/
-ul.jfu_uploads_list {
-	width:100%;
-	padding:0;
-	margin:0;
-	list-style-type:none;
+span.jfu_start{
+	border-collapse: collapse;
+	box-sizing: border-box;
+	color: rgb(53, 75, 96);
+	text-align: left;
+	text-decoration: none solid rgb(53, 75, 96);
+	text-size-adjust: 100%;
+	column-rule-color: rgb(53, 75, 96);
+	perspective-origin: 0px 0px;
+	transform-origin: 0px 0px;
+	caret-color: rgb(53, 75, 96);
+	border: 0px none rgb(53, 75, 96);
+	list-style: none outside none;
+	margin: 0px 10px 0px 0px;
+	outline: rgb(53, 75, 96) none 0px;
 }
+
+span.detail, .notes {font-size: .875rem; line-height: 1.5; color: #8d939e;}
+span.description {color: #8d939e;}
+div.jfu_files_container span.jfu_delete.delete {margin-right:10px;}
+div.jfu_choose_files span.jfu_choose_files{line-height: 38px;}
+
+/** list **/
+ul.jfu_uploads_list {width:100%; padding:0; margin:0; list-style-type:none;}
 
 ul.jfu_uploads_list li {
   margin: 0 0.6em 0.6em 0;
@@ -289,15 +348,44 @@ ul.jfu_upload_anywhere_widget_info_list li {
 /** anchor **/
 div.jfu_upload_anywhere_widget_header span, a.jfu_upload_anywhere_cancel_all {display: inline-block}
 li.jfu_marked_delete  a {text-decoration: line-through}
-a#jfu_start_upload, a#jfu_cancel_upload {margin-right:0}
-
-/** canvas **/
-div.jfu_preview_thumb canvas {
-	max-height: none;
-	max-width: 100%;
+table#jfu-files-list a.jfu_action {margin-right:0}
+a.jfu_action {
+	border-collapse: collapse;
+	box-sizing: border-box;
+	color: rgb(255, 255, 255);
+	display: inline-block;
+	/* height: 40px; */
+	text-align: center;
+	text-decoration: none solid rgb(255, 255, 255);
+	text-size-adjust: 100%;
+	text-transform: capitalize;
+	vertical-align: middle;
+	white-space: nowrap;
+	width: 95.0469px;
+	column-rule-color: rgb(255, 255, 255);
+	perspective-origin: 47.5156px 20px;
+	transform-origin: 47.5156px 20px;
+	caret-color: rgb(255, 255, 255);
+	background: rgb(62, 185, 152) none repeat scroll 0% 0% / auto padding-box border-box;
+	border: 1px solid rgba(0, 0, 0, 0);
+	border-radius: 4px 4px 4px 4px;
+	list-style: none outside none;
+	outline: rgb(255, 255, 255) none 0px;
+	/* padding: 0px 30px; */
+	transition: color 0.1s ease-in-out 0s, background-color 0.1s ease-in-out 0s, border-color 0.1s ease-in-out 0s;
 }
 
+a.jfu_start_upload {background-color:rgb(62, 185, 152)}
+a.jfu_cancel_upload{background-color:#6c8dae;}
+a.jfu_delete_upload{background-color:#D9534F;}
+a.jfu_action:hover  {cursor: pointer; background-color: #e83561; color: #fff;}
+a.jfu_preview_thumb {border-bottom:none;}
+/** blueimp gallery **/
+a.close {text-decoration: none; border-bottom:none!important;}
 
+
+/** canvas **/
+div.jfu_preview_thumb canvas {max-height: none;	max-width: 100%;}
 
 /** i **/
 div.jfu_single_action i.fa {position: absolute;	top: 50%; left: 50%;}
@@ -306,16 +394,14 @@ div.jfu_preview_thumb_action i.fa:hover {cursor: pointer;}
 div.jfu_uploads_start i.fa-times {margin-left: 35px;}
 
 /*** toggle visible action icon on hover ***/
+/* @todo: needed? */
 div.jfu_uploads_done:hover .fa-check-circle,
 div.jfu_uploads_done .fa-times-circle,
 li.jfu_marked_delete .fa-check-circle {
 	display: none;
 }
 div.jfu_uploads_done:hover .fa-times-circle,
-li.jfu_marked_delete .fa-times-circle {
-	display: inline;
-	color:#AB2E42;
-}
+li.jfu_marked_delete .fa-times-circle {display: inline;	color:#AB2E42;}
 
 .progress {background-color: #fff; height: 20px; overflow: hidden;}
 progress.active .progress-bar, .progress-bar.active {animation: 2s linear 0s normal none infinite running progress-bar-stripes;}
@@ -331,6 +417,47 @@ progress.active .progress-bar, .progress-bar.active {animation: 2s linear 0s nor
 	transition: width 0.6s ease 0s;
 }
 p {margin: 0 0 10px;}
+
+/** table **/
+table#jfu-files-list {width: 100%;border-collapse: collapse;}
+table#jfu-files-list th {
+	text-align: left;
+	padding: 16px 12px;
+	vertical-align: bottom;
+	color: #6c8dae;
+	text-transform: uppercase;
+	outline: 0;
+}
+
+table#jfu-files-list tbody tr {border-top: 1px solid #e5e5e5;	transition: background-color .1s linear;}
+table#jfu-files-list tbody tr:hover, table#jfu-files-list>tr:hover {background: #ffd;}
+table#jfu-files-list td {padding: 16px 12px;}
+table#jfu-files-list tbody>tr:last-child {border-bottom-style: solid; border-bottom-color: #e5e5e5;	border-bottom-width: 1px;}
+table#jfu-files-list td {font-size: 100%;}
+table#jfu-files-list th.jfu_file_preview {width: 25%;}
+table#jfu-files-list th.jfu_file_name {min-width: 150px;}
+table#jfu-files-list th.jfu_file_size {width: 150px;}
+table#jfu-files-list th.jfu_check_action {width: 300px;}
+
+/** audio, video, canvas */
+audio, canvas, video {
+	max-width: 100%;
+	height: auto;
+	box-sizing: border-box;
+	vertical-align: middle;
+}
+/** other**/
+/** ui-kit **/
+[class*=uk-width] {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 100%;
+}
+
+table#jfu-files-list td, div.jfu_files_container a {
+	line-height: 1.8em;
+}
+
 
 /*--------------------------------*/
 
@@ -354,6 +481,7 @@ p {margin: 0 0 10px;}
 	height: 100%;
   }
 }
+
 
 
 
