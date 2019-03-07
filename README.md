@@ -200,6 +200,7 @@ Uninstall like any other third-party ProcessWire module.
 ## Changelog
 #### Version 0.0.7
 1. Added option to unzip uploaded ZIP archives (works only if used in backend).
+2. Refreshed upload widget look and style.
 
 ## Changelog
 #### Version 0.0.6
