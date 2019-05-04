@@ -198,6 +198,9 @@ Uninstall like any other third-party ProcessWire module.
 [Support](https://processwire.com/talk/topic/12050-module-jquery-file-upload/)
 
 ## Changelog
+#### Version 0.0.8
+1. Made the method to process zip archives public so that it can be used with other modules/classes.
+
 #### Version 0.0.7
 1. Added option to unzip uploaded ZIP archives (works only if used in backend).
 2. Refreshed upload widget look and style.
