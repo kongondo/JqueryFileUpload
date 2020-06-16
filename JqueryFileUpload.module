@@ -43,7 +43,6 @@ class JqueryFileUpload extends WireData implements Module {
 			'version' => 8,
 			'singular' => true,
 			'autoload' => false,
-			//'permission' => 'jquery-file-upload',
 		);
 
 	}
@@ -539,7 +538,6 @@ class JqueryFileUpload extends WireData implements Module {
 
 	}
 
-
 	/**
 	 * Renders the upload buttons/input for the actions 'add files, start upload, cancel button and delete'.
 	 *
@@ -668,7 +666,6 @@ class JqueryFileUpload extends WireData implements Module {
 	 *
 	 */
 	private function renderDeleteUploads() {
-
 
 		$out = '';
 		// @todo: fontawesome fallback here?
